@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "TechDrop — Importar do AliExpress",
+  "version": "1.0.0",
+  "description": "Captura fotos, título, preço e variantes do AliExpress e envia para o painel TechDrop.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://*.aliexpress.com/*",
+    "https://*.alicdn.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16":  "icon16.png",
+      "48":  "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.aliexpress.com/item/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16":  "icon16.png",
+    "48":  "icon48.png",
+    "128": "icon128.png"
+  }
+}
