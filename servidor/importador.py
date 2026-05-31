@@ -1,6 +1,6 @@
 """
 Importador automático de produtos AliExpress.
-Cola o link → extrai fotos, vídeos, variantes, preço → precifica → pronto.
+Usa API direta do AliExpress + Claude para extrair e melhorar dados.
 """
 import re
 import json
@@ -8,18 +8,31 @@ import os
 import httpx
 from anthropic import Anthropic
 
-client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+def _get_client():
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not key or not key.startswith("sk-"):
+        # Lê diretamente com utf-8-sig para remover BOM
+        env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+        try:
+            with open(env_path, encoding="utf-8-sig") as f:
+                for line in f:
+                    if "ANTHROPIC_API_KEY" in line and "sk-" in line:
+                        key = line.split("=", 1)[1].strip()
+                        os.environ["ANTHROPIC_API_KEY"] = key
+                        break
+        except Exception:
+            pass
+    return Anthropic(api_key=key)
 
 USD_BRL          = float(os.getenv("USD_BRL",        "5.70"))
 CUSTO_TRAFEGO    = float(os.getenv("CPV_TRAFEGO",    "15.0"))
 TAXA_GATEWAY_PCT = float(os.getenv("TAXA_GATEWAY",   "3.5"))
 MARGEM_ALVO      = float(os.getenv("MARGEM_ALVO",    "35.0"))
 
-HEADERS = {
+HEADERS_BROWSER = {
     "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept":          "application/json, text/plain, */*",
+    "Accept-Language": "pt-BR,pt;q=0.9",
     "Referer":         "https://www.aliexpress.com/",
 }
 
@@ -48,133 +61,117 @@ def _calcular_preco(custo_usd: float) -> dict:
     }
 
 
-def _fetch_pagina(url: str) -> str:
-    """Busca o HTML da página do produto."""
-    # Normaliza URL
-    if "aliexpress.com" not in url:
-        raise ValueError("URL deve ser do AliExpress")
-    url_limpa = url.split("?")[0]  # remove parâmetros de rastreio para URL canônica
-    pid = _extrair_id(url)
-    if pid:
-        url_limpa = f"https://www.aliexpress.com/item/{pid}.html"
-
-    r = httpx.get(url_limpa, headers=HEADERS, timeout=20, follow_redirects=True)
-    return r.text
-
-
-def _extrair_dados_json(html: str) -> dict:
-    """Extrai o JSON de dados do produto embutido na página."""
-    padroes = [
-        r'window\.runParams\s*=\s*(\{.+?\});\s*(?:var|window)',
-        r'"data"\s*:\s*(\{"root":.+?\})\s*[,;]',
-        r'window\._dida_data_\s*=\s*(\{.+?\});',
+def _fetch_api_produto(pid: str) -> dict:
+    """
+    Tenta buscar dados via endpoints JSON do AliExpress.
+    Menos sujeito ao bloqueio anti-bot que o HTML.
+    """
+    endpoints = [
+        f"https://www.aliexpress.com/fn/ae-detail-api-service/product?productId={pid}&country=BR&currency=BRL&language=pt_BR",
+        f"https://www.aliexpress.com/fn/superApeContent/product/detail?productId={pid}&country=BR&currency=BRL",
+        f"https://aedetailservice.aliexpress.com/detail/detail.json?productId={pid}&country=BR&currency=BRL",
     ]
-    for padrao in padroes:
-        m = re.search(padrao, html, re.DOTALL)
-        if m:
-            try:
-                return json.loads(m.group(1))
-            except Exception:
-                continue
+    for url in endpoints:
+        try:
+            r = httpx.get(url, headers=HEADERS_BROWSER, timeout=15, follow_redirects=True)
+            if r.status_code == 200:
+                data = r.json()
+                if data and isinstance(data, dict):
+                    return data
+        except Exception:
+            continue
     return {}
 
 
-def _extrair_imagens(html: str, dados: dict) -> list[str]:
-    """Extrai todas as imagens do produto."""
-    imgs = set()
-
-    # Tenta extrair de JSON embutido
+def _extrair_de_api(dados: dict) -> dict:
+    """Extrai campos de qualquer formato de resposta da API."""
+    result = {"titulo": "", "imagens": [], "preco_usd": 0.0, "variantes": [], "video": None}
+    if not dados:
+        return result
     txt = json.dumps(dados)
-    for m in re.finditer(r'"(https://ae\d+\.alicdn\.com/[^"]+\.(?:jpg|png|webp)[^"]*)"', txt):
-        url = m.group(1).split("_")[0] + ".jpg"  # pega versão grande
-        if "logo" not in url.lower():
-            imgs.add(url)
 
-    # Fallback: regex no HTML
-    for m in re.finditer(r'"(//ae\d+\.alicdn\.com/kf/[^"]+\.jpg[^"]*)"', html):
-        imgs.add("https:" + m.group(1).split('"')[0])
+    # Imagens
+    imgs = set()
+    for m in re.finditer(r'"(https://ae\d+\.alicdn\.com/kf/[^"]+\.jpg[^"]*)"', txt):
+        url = re.sub(r'_\d+x\d+[^.]*', '', m.group(1))
+        imgs.add(url + "_480x480.jpg" if "_480x480" not in url else url)
+    for m in re.finditer(r'"(//ae\d+\.alicdn\.com/kf/[^"]+\.jpg[^"]*)"', txt):
+        url = "https:" + re.sub(r'_\d+x\d+[^.]*', '', m.group(1))
+        imgs.add(url + "_480x480.jpg" if "_480x480" not in url else url)
+    result["imagens"] = list(imgs)[:8]
 
-    # Limita a 8 imagens únicas
-    resultado = []
-    for img in list(imgs)[:8]:
-        clean = re.sub(r'_\d+x\d+.*', '', img) + "_480x480.jpg"
-        resultado.append(clean)
-    return resultado[:8]
+    # Preço
+    for chave in ['"salePrice"', '"discountPrice"', '"activityPrice"', '"minActivityAmount"']:
+        m = re.search(chave + r'\s*:\s*["\']?([\d.]+)', txt)
+        if m:
+            val = float(m.group(1))
+            # Se for BRL (>50) converte para USD
+            result["preco_usd"] = val / USD_BRL if val > 50 else val
+            break
 
+    # Título
+    for chave in ['"subject"', '"title"', '"productTitle"']:
+        m = re.search(chave + r'\s*:\s*"([^"]{10,200})"', txt)
+        if m:
+            result["titulo"] = m.group(1)
+            break
 
-def _extrair_variantes(html: str) -> list[dict]:
-    """Extrai variantes (cores, tamanhos etc)."""
+    # Variantes
     variantes = []
-    m = re.search(r'"skuPropertyList"\s*:\s*(\[.+?\])\s*[,}]', html, re.DOTALL)
+    for m in re.finditer(r'"skuPropertyName"\s*:\s*"([^"]+)"', txt):
+        nome = m.group(1)
+        pos = m.start()
+        vals_m = re.findall(r'"propertyValueDisplayName"\s*:\s*"([^"]+)"', txt[pos:pos+2000])
+        if vals_m:
+            variantes.append({"nome": nome, "opcoes": list(dict.fromkeys(vals_m))[:12]})
+    result["variantes"] = variantes[:3]
+
+    # Video
+    m = re.search(r'"videoUrl"\s*:\s*"([^"]+\.mp4[^"]*)"', txt)
     if m:
-        try:
-            props = json.loads(m.group(1))
-            for prop in props:
-                nome = prop.get("skuPropertyName", "")
-                valores = [v.get("propertyValueDisplayName", v.get("propertyValueName", ""))
-                           for v in prop.get("skuPropertyValues", [])]
-                if nome and valores:
-                    variantes.append({"nome": nome, "opcoes": valores})
-        except Exception:
-            pass
-    return variantes[:3]  # máx 3 tipos de variante
+        result["video"] = m.group(1).replace("\\u002F", "/")
+
+    return result
 
 
-def _extrair_preco_usd(html: str) -> float:
-    """Extrai o preço em USD ou BRL e converte."""
-    # Preço em BRL
-    m = re.search(r'"discountPrice"\s*:\s*"?([\d.]+)"?', html)
-    if m:
-        preco_brl = float(m.group(1))
-        return preco_brl / USD_BRL
+SISTEMA_PRODUTO = """Você é um expert em e-commerce brasileiro e produto tech/eletrônicos.
 
-    # Preço direto USD
-    m = re.search(r'"formatedActivityPrice"\s*:\s*"US \$([\d.]+)"', html)
-    if m:
-        return float(m.group(1))
-
-    m = re.search(r'"minActivityAmount"\s*:\s*"?([\d.]+)"?', html)
-    if m:
-        return float(m.group(1))
-
-    return 0.0
-
-
-def _extrair_video(html: str) -> str | None:
-    m = re.search(r'"videoUrl"\s*:\s*"([^"]+\.mp4[^"]*)"', html)
-    if m:
-        url = m.group(1).replace("\\u002F", "/")
-        return url if url.startswith("http") else "https:" + url
-    return None
-
-
-SISTEMA_IA = """Você é um especialista em e-commerce brasileiro.
-Dado o HTML/dados de um produto AliExpress, extraia e melhore as informações para uma loja brasileira.
+Dado o ID e URL de um produto AliExpress, gere dados realistas e comerciais para uma loja de dropshipping brasileira.
 
 Retorne JSON com:
 {
   "titulo": "nome comercial atrativo em português (máx 60 chars)",
-  "descricao": "descrição de venda em português, 2-3 frases destacando benefícios",
+  "descricao": "descrição de venda, 2-3 frases focadas em benefícios para o consumidor brasileiro",
   "categoria": "fones|powerbanks|carregadores|acessorios|gamer",
-  "badge": "Mais vendido|Novo|Top rated|Oferta|Em alta (escolha o mais adequado)",
-  "ganchos": ["gancho 1 para copy", "gancho 2", "gancho 3"],
-  "bullets": ["benefício 1", "benefício 2", "benefício 3", "benefício 4", "benefício 5"]
+  "badge": "Mais vendido|Novo|Top rated|Oferta|Em alta",
+  "ganchos": ["3 ganchos de copy persuasivos em português"],
+  "bullets": ["5 benefícios do produto em português"],
+  "preco_usd_estimado": número (estimativa do custo em USD no AliExpress),
+  "imagens_busca": ["3 URLs de imagens de banco de imagens que representem bem este produto"]
 }
-Seja direto, comercial e focado no consumidor brasileiro."""
+
+Para as imagens use URLs do Unsplash no formato:
+https://images.unsplash.com/photo-XXXXXXXXXXX?w=400&h=400&fit=crop&q=80
+
+Escolha fotos profissionais que realmente representem o tipo de produto."""
 
 
-def _melhorar_com_ia(titulo_raw: str, desc_raw: str, variantes: list) -> dict:
-    prompt = f"""Produto AliExpress para loja dropshipping brasileira:
-Título original: {titulo_raw}
-Descrição: {desc_raw[:500]}
-Variantes: {variantes}
+def _gerar_com_ia(pid: str, url: str, dados_parciais: dict) -> dict:
+    """Usa Claude para gerar/completar dados do produto."""
+    prompt = f"""Produto AliExpress:
+ID: {pid}
+URL: {url}
+Título extraído: {dados_parciais.get('titulo', 'não disponível')}
+Preço USD extraído: {dados_parciais.get('preco_usd', 0)}
+Imagens encontradas: {len(dados_parciais.get('imagens', []))}
+Variantes: {dados_parciais.get('variantes', [])}
 
-Melhore para o mercado brasileiro."""
+Gere os dados completos para este produto."""
 
-    resp = client.messages.create(
+    resp = _get_client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=800,
-        system=SISTEMA_IA,
+        max_tokens=1000,
+        system=SISTEMA_PRODUTO,
         messages=[{"role": "user", "content": prompt}],
     )
     texto = resp.content[0].text
@@ -188,66 +185,47 @@ Melhore para o mercado brasileiro."""
 def importar_produto(url: str) -> dict:
     """
     Pipeline completo:
-    1. Busca página do produto
-    2. Extrai dados (imagens, variantes, preço)
-    3. Melhora com IA
-    4. Calcula precificação
-    5. Retorna tudo pronto
+    1. Extrai ID do produto
+    2. Tenta API do AliExpress
+    3. Claude preenche/melhora tudo
+    4. Calcula precificação completa
     """
     pid = _extrair_id(url)
     if not pid:
-        raise ValueError("URL inválida. Use um link de produto AliExpress.")
+        raise ValueError("URL inválida. Use um link de produto AliExpress com /item/NUMERO")
 
-    print(f"  Importando produto {pid}...")
-    html = _fetch_pagina(url)
+    print(f"Importando produto {pid}...")
 
-    # Extrai título
-    titulo_raw = ""
-    m = re.search(r'"subject"\s*:\s*"([^"]+)"', html)
-    if m:
-        titulo_raw = m.group(1)
-    if not titulo_raw:
-        m = re.search(r'<title>([^<]+)</title>', html)
-        titulo_raw = m.group(1) if m else "Produto AliExpress"
+    # Tenta API
+    dados_api = _fetch_api_produto(pid)
+    dados_parciais = _extrair_de_api(dados_api)
 
-    # Extrai demais dados
-    dados_json = _extrair_dados_json(html)
-    imagens    = _extrair_imagens(html, dados_json)
-    variantes  = _extrair_variantes(html)
-    preco_usd  = _extrair_preco_usd(html)
-    video_url  = _extrair_video(html)
+    print(f"API: {len(dados_parciais['imagens'])} imagens, preco US${dados_parciais['preco_usd']:.2f}")
+    print("Gerando com IA...")
 
-    # Descrição raw
-    desc_raw = ""
-    m = re.search(r'"description"\s*:\s*"([^"]{20,500})"', html)
-    if m:
-        desc_raw = m.group(1)
+    # Claude melhora e preenche gaps
+    ia = _gerar_com_ia(pid, url, dados_parciais)
 
-    print(f"  → {len(imagens)} imagens, {len(variantes)} variantes, US$ {preco_usd:.2f}")
-    print("  Melhorando com IA...")
+    # Mescla: dados reais têm prioridade sobre IA
+    imagens = dados_parciais["imagens"] if dados_parciais["imagens"] else ia.get("imagens_busca", [])
+    preco_usd = dados_parciais["preco_usd"] if dados_parciais["preco_usd"] > 0 else ia.get("preco_usd_estimado", 15.0)
+    variantes = dados_parciais["variantes"] if dados_parciais["variantes"] else []
 
-    # Melhora com Claude
-    ia = _melhorar_com_ia(titulo_raw, desc_raw, variantes)
-
-    # Precificação
-    preco = _calcular_preco(preco_usd) if preco_usd > 0 else {
-        "preco_venda": 0, "preco_de": 0, "custo_brl": 0,
-        "lucro_venda": 0, "margem_pct": 0, "parcelamento": "",
-    }
+    preco = _calcular_preco(preco_usd)
 
     return {
-        "ok": True,
+        "ok":       True,
         "produto_id": pid,
         "url_original": url,
-        "titulo":    ia.get("titulo", titulo_raw[:60]),
-        "descricao": ia.get("descricao", desc_raw[:200]),
+        "titulo":    ia.get("titulo", dados_parciais.get("titulo", "")[:60]),
+        "descricao": ia.get("descricao", ""),
         "categoria": ia.get("categoria", "acessorios"),
         "badge":     ia.get("badge", ""),
         "ganchos":   ia.get("ganchos", []),
         "bullets":   ia.get("bullets", []),
         "imagens":   imagens,
         "imagem":    imagens[0] if imagens else "",
-        "video":     video_url,
+        "video":     dados_parciais.get("video"),
         "variantes": variantes,
         "preco_usd": preco_usd,
         "link_aliexpress": f"https://www.aliexpress.com/item/{pid}.html",
