@@ -13,8 +13,12 @@ from flask import Flask, request, jsonify, send_from_directory, make_response
 from flask_cors import CORS
 import httpx
 from dotenv import load_dotenv
-from servidor.auth import login_required, verificar_credenciais
-from servidor import produtos_db
+try:
+    from servidor.auth import login_required, verificar_credenciais
+    from servidor import produtos_db
+except ImportError:
+    from auth import login_required, verificar_credenciais
+    import produtos_db
 
 load_dotenv()
 
