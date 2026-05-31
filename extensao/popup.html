@@ -9,89 +9,52 @@
     .logo{font-size:15px;font-weight:800;color:#3b82f6;}
     .sub{font-size:11px;color:#64748b;margin-top:1px;}
     .body{padding:16px;}
-
-    /* ESTADO INICIAL */
-    #estado-inicial{text-align:center;padding:20px 0;}
-    #estado-inicial .ic{font-size:40px;margin-bottom:12px;}
-    #estado-inicial p{color:#64748b;font-size:12px;line-height:1.6;}
-    .btn-capturar{
-      width:100%;background:#3b82f6;color:#fff;border:none;
-      padding:12px;border-radius:8px;font-size:14px;font-weight:700;
-      cursor:pointer;margin-top:14px;transition:background .15s;
-    }
+    #estado-inicial{text-align:center;padding:8px 0;}
+    #estado-inicial p{color:#64748b;font-size:12px;line-height:1.6;margin:8px 0;}
+    .btn-capturar{width:100%;background:#3b82f6;color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;}
     .btn-capturar:hover{background:#2563eb;}
     .btn-capturar:disabled{background:#1e3a5f;color:#475569;cursor:not-allowed;}
-
-    /* LOADING */
     #estado-loading{display:none;text-align:center;padding:24px 0;}
-    .spinner{width:32px;height:32px;border:3px solid #334155;border-top-color:#3b82f6;
-      border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;}
+    .spinner{width:32px;height:32px;border:3px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;}
     @keyframes spin{to{transform:rotate(360deg)}}
-
-    /* PREVIEW */
     #estado-preview{display:none;}
     .prod-header{display:flex;gap:10px;margin-bottom:12px;}
     .prod-img-main{width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #334155;flex-shrink:0;}
     .prod-meta h3{font-size:13px;font-weight:700;line-height:1.4;margin-bottom:4px;}
     .prod-meta .preco{font-size:18px;font-weight:900;color:#3b82f6;}
     .prod-meta .preco-de{font-size:11px;color:#64748b;text-decoration:line-through;}
-
-    /* GALERIA */
     .galeria{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
-    .galeria img{width:48px;height:48px;object-fit:cover;border-radius:6px;
-      border:2px solid #334155;cursor:pointer;transition:border-color .15s;}
+    .galeria img{width:48px;height:48px;object-fit:cover;border-radius:6px;border:2px solid #334155;cursor:pointer;transition:border-color .15s;}
     .galeria img.sel{border-color:#3b82f6;}
     .galeria img:hover{border-color:#60a5fa;}
-
-    /* VARIANTES */
-    .variantes{background:#1e293b;border-radius:8px;padding:10px;margin-bottom:12px;}
+    .variantes{background:#1e293b;border-radius:8px;padding:10px;margin-bottom:10px;}
     .var-nome{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;}
     .var-opcoes{display:flex;flex-wrap:wrap;gap:4px;}
-    .var-op{background:#0f172a;border:1px solid #334155;padding:3px 8px;
-      border-radius:4px;font-size:11px;color:#94a3b8;}
+    .var-op{background:#0f172a;border:1px solid #334155;padding:3px 8px;border-radius:4px;font-size:11px;color:#94a3b8;}
     .var-op img{width:20px;height:20px;object-fit:cover;border-radius:2px;vertical-align:middle;margin-right:3px;}
-
-    /* PREÇO CALCULADO */
     .preco-box{background:#1e293b;border-radius:8px;padding:12px;margin-bottom:12px;}
     .preco-box .titulo{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:8px;}
     .preco-linha{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;}
     .preco-linha.destaque{font-size:15px;font-weight:800;padding-top:8px;margin-top:4px;border-top:1px solid #334155;}
     .preco-linha.destaque .val{color:#3b82f6;}
     .margem-ok{color:#22c55e;font-size:11px;margin-top:4px;}
-
-    /* CONFIGURAÇÕES */
-    .config{margin-bottom:12px;}
-    .config label{display:block;font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;}
-    .config input{width:100%;background:#1e293b;border:1px solid #334155;border-radius:6px;
-      padding:7px 10px;font-size:13px;color:#f1f5f9;outline:none;}
+    .config{margin-bottom:10px;}
+    .config label{display:block;font-size:10px;color:#64748b;text-transform:uppercase;margin-bottom:4px;letter-spacing:.4px;}
+    .config input{width:100%;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:7px 10px;font-size:12px;color:#f1f5f9;outline:none;}
     .config input:focus{border-color:#3b82f6;}
-
-    /* BOTÕES AÇÃO */
-    .acoes{display:flex;gap:8px;}
-    .btn-enviar{flex:1;background:#22c55e;color:#fff;border:none;padding:11px;
-      border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s;}
+    .acoes{display:flex;gap:8px;margin-top:4px;}
+    .btn-enviar{flex:1;background:#22c55e;color:#fff;border:none;padding:11px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
     .btn-enviar:hover{background:#16a34a;}
-    .btn-novo{background:#334155;color:#94a3b8;border:none;padding:11px 14px;
-      border-radius:8px;font-size:13px;cursor:pointer;}
-
-    /* ERRO */
+    .btn-voltar{background:#334155;color:#94a3b8;border:none;padding:11px 14px;border-radius:8px;font-size:13px;cursor:pointer;}
     #estado-erro{display:none;text-align:center;padding:20px 0;}
     #estado-erro .ic{font-size:36px;margin-bottom:10px;}
-    #estado-erro p{color:#f87171;font-size:12px;line-height:1.6;}
-
-    /* SUCESSO */
+    #estado-erro p{color:#f87171;font-size:12px;line-height:1.6;white-space:pre-line;}
     #estado-sucesso{display:none;text-align:center;padding:24px 0;}
     #estado-sucesso .ic{font-size:48px;margin-bottom:12px;}
     #estado-sucesso h3{font-size:16px;font-weight:800;color:#22c55e;margin-bottom:8px;}
     #estado-sucesso p{color:#64748b;font-size:12px;line-height:1.6;}
-    .btn-abrir-painel{
-      display:block;background:#3b82f6;color:#fff;border:none;
-      padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;
-      cursor:pointer;margin:14px auto 0;text-decoration:none;
-    }
-
-    .aviso-pagina{background:#1e3a5f;border:1px solid #1d4ed8;border-radius:8px;
-      padding:10px 12px;font-size:12px;color:#93c5fd;line-height:1.5;margin-bottom:12px;}
+    .btn-painel{display:inline-block;background:#3b82f6;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:14px;text-decoration:none;}
+    .btn-outro{display:block;background:#334155;color:#94a3b8;border:none;padding:9px;border-radius:8px;font-size:12px;cursor:pointer;margin-top:8px;width:100%;}
   </style>
 </head>
 <body>
@@ -107,9 +70,16 @@
 
   <!-- INICIAL -->
   <div id="estado-inicial">
-    <div class="ic">🛒</div>
-    <p>Abra a página de um produto no AliExpress e clique em <strong>Capturar produto</strong> para importar as fotos, preço e variantes automaticamente.</p>
-    <button class="btn-capturar" id="btn-cap" onclick="capturar()">Capturar produto</button>
+    <div class="config">
+      <label>URL do painel admin</label>
+      <input type="text" id="cfg-url" placeholder="https://web-production-xxx.up.railway.app"/>
+    </div>
+    <div class="config">
+      <label>Token admin</label>
+      <input type="text" id="cfg-token" placeholder="Cole seu token aqui"/>
+    </div>
+    <p>Abra um produto no AliExpress e clique em <strong>Capturar produto</strong>.</p>
+    <button class="btn-capturar" id="btn-capturar">Capturar produto</button>
   </div>
 
   <!-- LOADING -->
@@ -128,10 +98,8 @@
         <div id="prev-preco" class="preco"></div>
       </div>
     </div>
-
     <div class="galeria" id="prev-galeria"></div>
     <div id="prev-variantes"></div>
-
     <div class="preco-box">
       <div class="titulo">Precificação calculada</div>
       <div class="preco-linha"><span>Custo (BRL)</span><span id="p-custo">—</span></div>
@@ -140,36 +108,26 @@
       <div class="preco-linha destaque"><span>Vender por</span><span class="val" id="p-venda">—</span></div>
       <div class="margem-ok" id="p-margem"></div>
     </div>
-
-    <div class="config">
-      <label>URL do seu painel admin</label>
-      <input type="text" id="cfg-url" placeholder="https://web-production-xxx.up.railway.app"/>
-    </div>
-    <div class="config">
-      <label>Token admin</label>
-      <input type="text" id="cfg-token" placeholder="Cole seu token aqui"/>
-    </div>
-
     <div class="acoes">
-      <button class="btn-enviar" onclick="enviarParaPainel()">✅ Importar para o painel</button>
-      <button class="btn-novo" onclick="resetar()">↩</button>
+      <button class="btn-enviar" id="btn-enviar">✅ Importar para o painel</button>
+      <button class="btn-voltar" id="btn-voltar">↩</button>
     </div>
   </div>
 
   <!-- ERRO -->
   <div id="estado-erro">
     <div class="ic">⚠️</div>
-    <p id="msg-erro">Erro ao capturar. Abra a página de um produto AliExpress e tente novamente.</p>
-    <button class="btn-capturar" onclick="resetar()" style="margin-top:14px;">Tentar novamente</button>
+    <p id="msg-erro">Erro ao capturar.</p>
+    <button class="btn-capturar" id="btn-tentar-novamente" style="margin-top:14px;">Tentar novamente</button>
   </div>
 
   <!-- SUCESSO -->
   <div id="estado-sucesso">
     <div class="ic">🎉</div>
     <h3>Produto importado!</h3>
-    <p>O produto foi adicionado ao seu painel com as fotos reais. Revise e publique no site.</p>
-    <a id="link-painel" class="btn-abrir-painel" href="#" target="_blank">Abrir painel admin →</a>
-    <button class="btn-novo" onclick="resetar()" style="margin-top:8px;display:block;width:100%;">Importar outro produto</button>
+    <p>Adicionado ao painel com as fotos reais. Revise e publique.</p>
+    <a id="link-painel" class="btn-painel" href="#" target="_blank">Abrir painel admin →</a>
+    <button class="btn-outro" id="btn-outro">Importar outro produto</button>
   </div>
 
 </div>

@@ -3,7 +3,7 @@
   "name": "TechDrop — Importar do AliExpress",
   "version": "1.0.0",
   "description": "Captura fotos, título, preço e variantes do AliExpress e envia para o painel TechDrop.",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": [
     "https://*.aliexpress.com/*",
     "https://*.alicdn.com/*"
