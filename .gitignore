@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+dados/banco.json
+dados/pedidos/
+outputs/
+*.egg-info/
