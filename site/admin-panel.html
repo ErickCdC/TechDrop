@@ -174,7 +174,23 @@
   <div class="page" id="page-produtos">
     <div class="page-header">
       <h1>Produtos</h1>
-      <button class="btn-primary" onclick="abrirModalProduto()">+ Novo produto</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" style="background:var(--green)" onclick="abrirImportador()">⚡ Importar do AliExpress</button>
+        <button class="btn-primary" onclick="abrirModalProduto()">+ Novo manual</button>
+      </div>
+    </div>
+
+    <!-- IMPORTADOR -->
+    <div id="importador-box" style="display:none;background:var(--card);border:1px solid var(--accent);border-radius:12px;padding:20px;margin-bottom:20px;">
+      <div style="font-size:14px;font-weight:800;margin-bottom:12px;">⚡ Importar produto do AliExpress</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <input type="text" id="import-url" placeholder="Cole o link do produto AliExpress aqui..."
+          style="flex:1;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text);font-family:inherit;outline:none;min-width:300px;"
+          onkeydown="if(event.key==='Enter')importarProduto()"/>
+        <button class="btn-primary" onclick="importarProduto()" id="btn-importar">Importar →</button>
+        <button class="btn-secondary" onclick="fecharImportador()">Cancelar</button>
+      </div>
+      <div id="import-status" style="margin-top:12px;font-size:13px;color:var(--muted);display:none;"></div>
     </div>
     <div class="prod-grid" id="prod-grid">
       <div style="color:var(--muted);font-size:13px;">Carregando...</div>
@@ -231,6 +247,13 @@
         <div class="overlay" style="color:#fff;font-size:13px;font-weight:700;">Trocar foto</div>
       </div>
       <input type="file" id="input-foto" accept="image/*" style="display:none" onchange="uploadFoto(this)"/>
+
+      <!-- Galeria importada -->
+      <div id="galeria-importada" style="display:none;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;">Clique para escolher a foto principal</div>
+        <div class="galeria-imgs" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+
       <div class="field">
         <label>Ou cole URL da foto</label>
         <input type="text" id="prod-imagem" placeholder="https://..." oninput="previewUrl(this.value)"/>
@@ -274,6 +297,14 @@
       <label>Link AliExpress (fornecedor)</label>
       <input type="text" id="prod-link" placeholder="https://www.aliexpress.com/item/..."/>
     </div>
+
+    <!-- VARIANTES IMPORTADAS -->
+    <div id="variantes-importadas" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:10px;">Variantes disponíveis (cores/tamanhos)</div>
+    </div>
+
+    <!-- GANCHOS DE COPY -->
+    <div id="ganchos-importados" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;"></div>
 
     <!-- CALCULADORA DE PRECIFICAÇÃO -->
     <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;">
@@ -596,6 +627,119 @@ function toast(msg,tipo=""){
   el.textContent=msg;
   el.className="toast show"+(tipo?" "+tipo:"");
   setTimeout(()=>el.classList.remove("show"),3000);
+}
+
+// ── IMPORTADOR ALIEXPRESS ─────────────────────────────────────────────────────
+function abrirImportador() {
+  document.getElementById("importador-box").style.display = "block";
+  document.getElementById("import-url").focus();
+}
+function fecharImportador() {
+  document.getElementById("importador-box").style.display = "none";
+  document.getElementById("import-url").value = "";
+  document.getElementById("import-status").style.display = "none";
+}
+
+async function importarProduto() {
+  const url = document.getElementById("import-url").value.trim();
+  if (!url) { toast("Cole o link do produto", "erro"); return; }
+
+  const btn    = document.getElementById("btn-importar");
+  const status = document.getElementById("import-status");
+  btn.disabled = true; btn.textContent = "Importando...";
+  status.style.display = "block";
+  status.innerHTML = `<span style="color:var(--accent)">⏳ Buscando produto no AliExpress...</span>`;
+
+  try {
+    const r = await API("/api/admin/importar", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    });
+    const d = await r.json();
+
+    if (!d.ok) {
+      status.innerHTML = `<span style="color:var(--red)">❌ ${d.erro}</span>`;
+      return;
+    }
+
+    status.innerHTML = `<span style="color:var(--green)">✅ Produto encontrado! Abrindo formulário...</span>`;
+
+    // Preenche o modal com os dados importados
+    setTimeout(() => {
+      fecharImportador();
+      _preencherModalImportado(d);
+    }, 800);
+
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">❌ Erro de conexão. Servidor offline?</span>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "Importar →";
+  }
+}
+
+function _preencherModalImportado(d) {
+  document.getElementById("prod-id").value        = "";
+  document.getElementById("modal-titulo").textContent = "Produto importado — revise e salve";
+  document.getElementById("prod-titulo").value    = d.titulo || "";
+  document.getElementById("prod-descricao").value = d.descricao || "";
+  document.getElementById("prod-imagem").value    = d.imagem || "";
+  document.getElementById("prod-preco").value     = d.preco_venda || "";
+  document.getElementById("prod-preco-de").value  = d.preco_de || "";
+  document.getElementById("prod-badge").value     = d.badge || "";
+  document.getElementById("prod-link").value      = d.link_aliexpress || "";
+  document.getElementById("prod-ativo").value     = "true";
+  document.getElementById("calc-custo-usd").value = d.preco_usd ? d.preco_usd.toFixed(2) : "";
+
+  // Preview da imagem principal
+  if (d.imagem) previewUrl(d.imagem);
+
+  // Galeria de imagens
+  const galeria = document.getElementById("galeria-importada");
+  if (galeria && d.imagens?.length > 1) {
+    galeria.style.display = "block";
+    galeria.querySelector(".galeria-imgs").innerHTML = d.imagens.map((img, i) => `
+      <img src="${img}" onclick="selecionarImagemImportada('${img}')"
+        style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:2px solid ${i===0?'var(--accent)':'var(--border)'};cursor:pointer;"
+        title="Clique para usar esta foto"/>`).join("");
+  }
+
+  // Variantes
+  const varEl = document.getElementById("variantes-importadas");
+  if (varEl && d.variantes?.length) {
+    varEl.style.display = "block";
+    varEl.innerHTML = d.variantes.map(v => `
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px;">${v.nome}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${v.opcoes.map(o => `<span style="background:var(--bg);border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-size:12px;">${o}</span>`).join("")}
+        </div>
+      </div>`).join("");
+  }
+
+  // Ganchos de copy
+  const ganchosEl = document.getElementById("ganchos-importados");
+  if (ganchosEl && d.ganchos?.length) {
+    ganchosEl.style.display = "block";
+    ganchosEl.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Ganchos de venda gerados pela IA</div>` +
+      d.ganchos.map(g => `<div style="background:var(--bg);border:1px solid var(--border);padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:6px;cursor:pointer;"
+        onclick="navigator.clipboard.writeText('${g.replace(/'/g,"\\'")}');toast('Copiado!')" title="Clique para copiar">
+        💬 ${g}
+      </div>`).join("");
+  }
+
+  // Calcula preço automaticamente
+  calcularPreco();
+
+  document.getElementById("modal-produto").classList.add("show");
+  toast(`✅ ${d.imagens?.length||0} fotos importadas!`);
+}
+
+function selecionarImagemImportada(url) {
+  document.getElementById("prod-imagem").value = url;
+  previewUrl(url);
+  document.querySelectorAll(".galeria-imgs img").forEach(img => {
+    img.style.borderColor = img.src === url ? "var(--accent)" : "var(--border)";
+  });
 }
 
 // ── CALCULADORA DE PREÇO ──────────────────────────────────────────────────────

@@ -16,9 +16,11 @@ from dotenv import load_dotenv
 try:
     from servidor.auth import login_required, verificar_credenciais
     from servidor import produtos_db
+    from servidor.importador import importar_produto
 except ImportError:
     from auth import login_required, verificar_credenciais
     import produtos_db
+    from importador import importar_produto
 
 load_dotenv()
 
@@ -309,6 +311,21 @@ def admin_atualizar_produto(pid):
 def admin_deletar_produto(pid):
     ok = produtos_db.deletar(pid)
     return jsonify({"ok": ok})
+
+@app.route("/api/admin/importar", methods=["POST"])
+@login_required
+def admin_importar_produto():
+    """Importa produto completo a partir de uma URL do AliExpress."""
+    url = (request.json or {}).get("url", "").strip()
+    if not url:
+        return jsonify({"ok": False, "erro": "URL não informada"}), 400
+    try:
+        dados = importar_produto(url)
+        return jsonify(dados)
+    except ValueError as e:
+        return jsonify({"ok": False, "erro": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "erro": f"Erro ao importar: {str(e)}"}), 500
 
 @app.route("/api/admin/produtos/upload-foto", methods=["POST"])
 @login_required
