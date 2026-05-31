@@ -51,17 +51,6 @@ def index():
 
 # ── CARRINHO ──────────────────────────────────────────────────────────────────
 
-@app.route("/api/produtos", methods=["GET"])
-def listar_produtos():
-    """Retorna o catálogo de produtos com preços e links de checkout."""
-    try:
-        with open(Path(__file__).parent.parent / "dados" / "produtos.json", encoding="utf-8") as f:
-            produtos = json.load(f)
-        return jsonify({"ok": True, "produtos": produtos})
-    except FileNotFoundError:
-        return jsonify({"ok": False, "erro": "Catálogo não encontrado. Rode o agente AliExpress primeiro."})
-
-
 # ── CRIAR PREFERÊNCIA DE PAGAMENTO (MERCADO PAGO) ────────────────────────────
 
 @app.route("/api/checkout", methods=["POST"])
