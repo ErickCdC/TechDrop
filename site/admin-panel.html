@@ -200,14 +200,34 @@
     </div>
   </div>
 
-  <!-- PEDIDOS -->
+  <!-- PEDIDOS / FULFILLMENT -->
   <div class="page" id="page-pedidos">
-    <div class="page-header"><h1>Pedidos</h1></div>
-    <div class="painel">
-      <table class="tabela">
-        <thead><tr><th>ID</th><th>Cliente</th><th>E-mail</th><th>Total</th><th>Pagamento</th><th>Status</th><th>Data</th></tr></thead>
-        <tbody id="tbody-pedidos"><tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px;">Carregando...</td></tr></tbody>
-      </table>
+    <div class="page-header">
+      <h1>Pedidos & Fulfillment</h1>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" style="background:var(--accent)30;color:var(--accent);border:1px solid var(--accent)50;" onclick="filtrarPedidos('todos')">Todos</button>
+        <button class="btn-primary" style="background:var(--green)30;color:var(--green);border:1px solid var(--green)50;" onclick="filtrarPedidos('aprovado')">✅ Aprovados</button>
+        <button class="btn-primary" style="background:var(--yellow)30;color:var(--yellow);border:1px solid var(--yellow)50;" onclick="filtrarPedidos('pendente')">⏳ Pendentes</button>
+      </div>
+    </div>
+
+    <!-- CARDS DE PEDIDO -->
+    <div id="pedidos-cards" style="display:grid;gap:14px;"></div>
+  </div>
+
+  <!-- MODAL RASTREIO -->
+  <div class="modal-bg" id="modal-rastreio">
+    <div class="modal" style="max-width:400px;">
+      <h2>Adicionar código de rastreio</h2>
+      <input type="hidden" id="rastreio-pedido-id"/>
+      <div class="field" style="margin-top:16px;">
+        <label>Código de rastreio</label>
+        <input type="text" id="rastreio-codigo" placeholder="Ex: BR123456789CN"/>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="document.getElementById('modal-rastreio').classList.remove('show')">Cancelar</button>
+        <button class="btn-primary" onclick="salvarRastreio()">Salvar</button>
+      </div>
     </div>
   </div>
 
@@ -604,24 +624,173 @@ async function excluirProduto(id){
 
 function fecharModal(){document.getElementById("modal-produto").classList.remove("show");}
 
-// ── PEDIDOS ───────────────────────────────────────────────────────────────────
-async function carregarPedidos(){
-  try{
-    const r=await API("/api/admin/pedidos");
-    const d=await r.json();
-    const pedidos=d.pedidos||[];
-    document.getElementById("tbody-pedidos").innerHTML=pedidos.length?
-      pedidos.map(p=>`<tr>
-        <td style="font-weight:700;color:var(--accent)">#${p.id}</td>
-        <td>${p.cliente?.nome||"—"}</td>
-        <td style="color:var(--muted)">${p.cliente?.email||"—"}</td>
-        <td>R$ ${(p.total||0).toFixed(2).replace(".",",")}</td>
-        <td style="color:var(--muted)">${p.metodo_pgto||"—"}</td>
-        <td><span class="status-pill ${p.status==="approved"?"aprovado":p.status?.includes("aguard")?"aguardando":"pendente"}">${p.status||"—"}</span></td>
-        <td style="color:var(--muted)">${p.criado_em?.slice(0,16).replace("T"," ")||"—"}</td>
-      </tr>`).join(""):
-      '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px;">Nenhum pedido ainda</td></tr>';
-  }catch(e){}
+// ── PEDIDOS / FULFILLMENT ─────────────────────────────────────────────────────
+let _pedidosTodos = [];
+
+async function carregarPedidos() {
+  try {
+    const r = await API("/api/admin/pedidos");
+    const d = await r.json();
+    _pedidosTodos = d.pedidos || [];
+    renderPedidosCards(_pedidosTodos);
+  } catch(e) {
+    document.getElementById("pedidos-cards").innerHTML =
+      '<div style="color:var(--muted);text-align:center;padding:40px;">Nenhum pedido ainda.</div>';
+  }
+}
+
+function filtrarPedidos(tipo) {
+  if (tipo === "todos")    return renderPedidosCards(_pedidosTodos);
+  if (tipo === "aprovado") return renderPedidosCards(_pedidosTodos.filter(p => p.status === "approved" || p.status === "pagamento_aprovado"));
+  if (tipo === "pendente") return renderPedidosCards(_pedidosTodos.filter(p => !["approved","pagamento_aprovado","comprado_aliexpress","reembolsado"].includes(p.status)));
+}
+
+function _statusLabel(s) {
+  const m = {
+    "approved":            {label:"✅ Pago",         cls:"aprovado"},
+    "pagamento_aprovado":  {label:"✅ Pago",         cls:"aprovado"},
+    "comprado_aliexpress": {label:"📦 Comprado",     cls:"aprovado"},
+    "aguardando_pagamento":{label:"⏳ Aguardando",   cls:"aguardando"},
+    "pending":             {label:"⏳ Pendente",     cls:"pendente"},
+    "reembolsado":         {label:"↩️ Reembolsado", cls:"aguardando"},
+  };
+  return m[s] || {label: s || "—", cls: "aguardando"};
+}
+
+function _enderecoFormatado(c) {
+  const e = c?.endereco || {};
+  return [e.rua, e.numero, e.complemento, e.bairro, e.cidade, e.estado, e.cep]
+    .filter(Boolean).join(", ");
+}
+
+function _linkAliExpress(item, cliente) {
+  // Abre direto na página do produto (link salvo ou busca)
+  const link = item.link_aliexpress || `https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(item.titulo || "")}`;
+  return link;
+}
+
+function renderPedidosCards(pedidos) {
+  const el = document.getElementById("pedidos-cards");
+  if (!pedidos.length) {
+    el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Nenhum pedido encontrado.</div>';
+    return;
+  }
+
+  el.innerHTML = pedidos.map(p => {
+    const st = _statusLabel(p.status);
+    const end = _enderecoFormatado(p.cliente);
+    const aprovado = ["approved","pagamento_aprovado"].includes(p.status);
+    const comprado = p.status === "comprado_aliexpress";
+
+    const itensHtml = (p.itens || []).map(item => {
+      const aliLink = _linkAliExpress(item, p.cliente);
+      return `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)20;">
+        <img src="${item.imagem||''}" onerror="this.style.display='none'"
+          style="width:50px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0;"/>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:2px;">${item.titulo||'—'}</div>
+          <div style="font-size:12px;color:var(--muted);">Qtd: ${item.quantidade||1} · R$ ${(item.preco_venda||0).toFixed(2).replace(".",",")}</div>
+        </div>
+        ${aprovado && !comprado ? `
+        <a href="${aliLink}" target="_blank" rel="noopener"
+          style="background:var(--green);color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0;">
+          🛒 Comprar no AliExpress
+        </a>` : ""}
+      </div>`;
+    }).join("");
+
+    return `
+    <div style="background:var(--card);border:1px solid ${aprovado && !comprado ? "var(--green)" : "var(--border)"};border-radius:14px;padding:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:16px;font-weight:900;color:var(--accent);">#${p.id}</span>
+          <span class="status-pill ${st.cls}">${st.label}</span>
+          ${comprado && p.rastreio ? `<span style="font-size:11px;color:var(--muted);">📮 ${p.rastreio}</span>` : ""}
+        </div>
+        <div style="font-size:13px;color:var(--muted);">${p.criado_em?.slice(0,16).replace("T"," ")||"—"}</div>
+      </div>
+
+      <!-- Cliente -->
+      <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><span style="color:var(--muted);">Cliente:</span> <strong>${p.cliente?.nome||"—"}</strong></div>
+          <div><span style="color:var(--muted);">E-mail:</span> ${p.cliente?.email||"—"}</div>
+          <div><span style="color:var(--muted);">Tel:</span> ${p.cliente?.telefone||"—"}</div>
+          <div><span style="color:var(--muted);">Total:</span> <strong style="color:var(--green);">R$ ${(p.total||0).toFixed(2).replace(".",",")}</strong></div>
+        </div>
+        ${end ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)20;">
+          <span style="color:var(--muted);">📍 Endereço:</span>
+          <strong style="margin-left:4px;">${end}</strong>
+          <button onclick="copiarEndereco('${end.replace(/'/g,"\\'")}')"
+            style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer;margin-left:6px;">
+            Copiar
+          </button>
+        </div>` : ""}
+      </div>
+
+      <!-- Itens -->
+      <div style="margin-bottom:12px;">${itensHtml}</div>
+
+      <!-- Ações -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${aprovado && !comprado ? `
+        <button onclick="marcarComprado('${p.id}')"
+          style="background:var(--green)20;color:var(--green);border:1px solid var(--green)40;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+          ✅ Marcar como comprado
+        </button>` : ""}
+        ${comprado ? `
+        <button onclick="abrirModalRastreio('${p.id}')"
+          style="background:var(--accent)20;color:var(--accent);border:1px solid var(--accent)40;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+          📮 ${p.rastreio ? "Atualizar rastreio" : "Adicionar rastreio"}
+        </button>` : ""}
+        ${["approved","pagamento_aprovado"].includes(p.status) ? `
+        <button onclick="reembolsar('${p.id}')"
+          style="background:var(--red)20;color:var(--red);border:1px solid var(--red)40;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+          ↩️ Reembolsar
+        </button>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function copiarEndereco(end) {
+  navigator.clipboard.writeText(end);
+  toast("Endereço copiado!");
+}
+
+async function marcarComprado(id) {
+  const r = await API(`/api/admin/pedidos/${id}/fulfillment`, {method:"POST", body:JSON.stringify({})});
+  const d = await r.json();
+  if (d.ok) { toast("Marcado como comprado!"); carregarPedidos(); }
+  else toast("Erro: " + d.erro, "erro");
+}
+
+function abrirModalRastreio(id) {
+  document.getElementById("rastreio-pedido-id").value = id;
+  document.getElementById("rastreio-codigo").value = "";
+  document.getElementById("modal-rastreio").classList.add("show");
+}
+
+async function salvarRastreio() {
+  const id = document.getElementById("rastreio-pedido-id").value;
+  const cod = document.getElementById("rastreio-codigo").value.trim();
+  if (!cod) { toast("Digite o código de rastreio", "erro"); return; }
+  const r = await API(`/api/admin/pedidos/${id}/fulfillment`, {method:"POST", body:JSON.stringify({rastreio: cod})});
+  const d = await r.json();
+  if (d.ok) {
+    document.getElementById("modal-rastreio").classList.remove("show");
+    toast("Rastreio salvo!");
+    carregarPedidos();
+  } else toast("Erro: " + d.erro, "erro");
+}
+
+async function reembolsar(id) {
+  if (!confirm(`Confirma o reembolso do pedido #${id}? O valor será devolvido ao cliente.`)) return;
+  const r = await API(`/api/admin/pedidos/${id}/reembolsar`, {method:"POST", body:JSON.stringify({})});
+  const d = await r.json();
+  if (d.ok) { toast("Reembolso solicitado com sucesso!"); carregarPedidos(); }
+  else toast("Erro: " + d.erro, "erro");
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────

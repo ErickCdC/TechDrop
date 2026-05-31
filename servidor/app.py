@@ -348,6 +348,46 @@ def servir_upload(nome):
 
 # ── ADMIN PEDIDOS ──────────────────────────────────────────────────────────────
 
+@app.route("/api/admin/pedidos/<pedido_id>/reembolsar", methods=["POST"])
+@login_required
+def admin_reembolsar(pedido_id):
+    """Reembolsa um pedido via Mercado Pago."""
+    pedido = _carregar_pedido(pedido_id.upper())
+    if not pedido:
+        return jsonify({"ok": False, "erro": "Pedido não encontrado"}), 404
+    payment_id = pedido.get("payment_id")
+    if not payment_id:
+        return jsonify({"ok": False, "erro": "Pedido sem payment_id"}), 400
+    try:
+        r = httpx.post(
+            f"https://api.mercadopago.com/v1/payments/{payment_id}/refunds",
+            headers={**MP_HEADERS, "X-Idempotency-Key": f"refund-{pedido_id}"},
+            json={},
+            timeout=15,
+        )
+        if r.status_code in (200, 201):
+            pedido["status"] = "reembolsado"
+            _salvar_pedido(pedido)
+            return jsonify({"ok": True, "msg": "Reembolso solicitado com sucesso"})
+        return jsonify({"ok": False, "erro": r.text}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "erro": str(e)}), 500
+
+
+@app.route("/api/admin/pedidos/<pedido_id>/fulfillment", methods=["POST"])
+@login_required
+def admin_marcar_fulfillment(pedido_id):
+    """Marca pedido como comprado no AliExpress."""
+    pedido = _carregar_pedido(pedido_id.upper())
+    if not pedido:
+        return jsonify({"ok": False, "erro": "Pedido não encontrado"}), 404
+    pedido["status"] = "comprado_aliexpress"
+    pedido["comprado_em"] = datetime.now().isoformat()
+    pedido["rastreio"] = (request.json or {}).get("rastreio", "")
+    _salvar_pedido(pedido)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/admin/pedidos", methods=["GET"])
 @login_required
 def admin_listar_pedidos():
