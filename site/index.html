@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>TechDrop Brasil — Tecnologia com Preço Justo</title>
+  <meta name="description" content="Fones, powerbanks e acessórios tech com entrega em casa. Frete grátis hoje.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --primary:#111827;
+      --accent:#2563eb;
+      --accent-h:#1d4ed8;
+      --green:#16a34a;
+      --red:#dc2626;
+      --yellow:#d97706;
+      --bg:#f9fafb;
+      --white:#ffffff;
+      --border:#e5e7eb;
+      --muted:#6b7280;
+      --text:#111827;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{scroll-behavior:smooth;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:15px;}
+    a{text-decoration:none;color:inherit;}
+    img{display:block;max-width:100%;}
+
+    /* ── BARRA TOPO ─────────────────────── */
+    .top-bar{
+      background:var(--primary);color:#fff;
+      text-align:center;padding:9px 16px;font-size:13px;font-weight:500;
+      position:sticky;top:0;z-index:200;
+    }
+    .top-bar strong{color:#fbbf24;}
+    #countdown{font-weight:800;background:#fbbf2425;padding:1px 8px;border-radius:4px;margin-left:4px;}
+
+    /* ── HEADER ────────────────────────── */
+    header{
+      background:var(--white);border-bottom:1px solid var(--border);
+      padding:0 5%;position:sticky;top:38px;z-index:100;
+    }
+    .header-inner{display:flex;align-items:center;gap:20px;height:64px;}
+    .logo{font-size:19px;font-weight:900;color:var(--accent);flex-shrink:0;}
+    .search-bar{
+      flex:1;display:flex;align-items:center;
+      background:var(--bg);border:1.5px solid var(--border);border-radius:8px;
+      padding:0 14px;height:40px;gap:8px;
+    }
+    .search-bar input{border:none;background:none;width:100%;font-size:14px;outline:none;color:var(--text);}
+    .search-bar input::placeholder{color:var(--muted);}
+    .header-actions{display:flex;gap:12px;align-items:center;flex-shrink:0;}
+    .header-actions a{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+    .btn-cart{
+      background:var(--accent);color:#fff;padding:9px 18px;
+      border-radius:8px;font-size:13px;font-weight:700;
+      display:flex;align-items:center;gap:6px;cursor:pointer;border:none;
+    }
+    .cart-badge{
+      background:#dc2626;color:#fff;font-size:10px;font-weight:900;
+      width:18px;height:18px;border-radius:50%;display:inline-flex;
+      align-items:center;justify-content:center;margin-left:2px;
+    }
+
+    /* CARRINHO LATERAL */
+    .cart-overlay{display:none;position:fixed;inset:0;background:#00000060;z-index:300;}
+    .cart-overlay.show{display:block;}
+    .cart-drawer{
+      position:fixed;top:0;right:-420px;width:400px;height:100vh;
+      background:#fff;z-index:301;box-shadow:-8px 0 40px rgba(0,0,0,.15);
+      transition:right .3s ease;display:flex;flex-direction:column;
+    }
+    .cart-drawer.show{right:0;}
+    .cart-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .cart-header h3{font-size:16px;font-weight:800;}
+    .cart-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);}
+    .cart-items{flex:1;overflow-y:auto;padding:16px 24px;}
+    .cart-item{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);}
+    .cart-item img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex-shrink:0;}
+    .cart-item .ci-info{flex:1;}
+    .cart-item .ci-info h4{font-size:13px;font-weight:600;line-height:1.4;margin-bottom:4px;}
+    .cart-item .ci-info .ci-preco{font-size:15px;font-weight:800;color:var(--accent);}
+    .cart-item .ci-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:4px;}
+    .cart-empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:14px;}
+    .cart-footer{padding:20px 24px;border-top:1px solid var(--border);}
+    .cart-total{display:flex;justify-content:space-between;font-size:16px;font-weight:800;margin-bottom:14px;}
+    .btn-checkout{
+      display:block;background:var(--accent);color:#fff;text-align:center;
+      padding:15px;border-radius:10px;font-size:15px;font-weight:800;
+      text-decoration:none;transition:background .15s;
+    }
+    .btn-checkout:hover{background:var(--accent-h);}
+    .btn-continuar{display:block;text-align:center;font-size:13px;color:var(--muted);margin-top:10px;cursor:pointer;}
+
+    /* ── NAV CATEGORIAS ─────────────────── */
+    .cat-nav{
+      background:var(--white);border-bottom:1px solid var(--border);
+      padding:0 5%;display:flex;gap:28px;overflow-x:auto;
+    }
+    .cat-nav a{
+      font-size:13px;font-weight:600;color:var(--muted);padding:12px 0;
+      white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;
+    }
+    .cat-nav a:hover,.cat-nav a.ativo{color:var(--accent);border-bottom-color:var(--accent);}
+
+    /* ── HERO BANNER ─────────────────────── */
+    .hero-banner{
+      background:linear-gradient(135deg,#1e3a8a 0%,#1e40af 50%,#2563eb 100%);
+      padding:48px 5%;display:flex;align-items:center;
+      justify-content:space-between;gap:32px;flex-wrap:wrap;
+      min-height:320px;
+    }
+    .hero-text{max-width:520px;}
+    .hero-text .tag{
+      background:#ffffff25;color:#fff;font-size:12px;font-weight:700;
+      padding:4px 14px;border-radius:50px;display:inline-block;margin-bottom:16px;
+      letter-spacing:.5px;text-transform:uppercase;
+    }
+    .hero-text h1{font-size:clamp(26px,4vw,46px);font-weight:900;color:#fff;line-height:1.15;margin-bottom:14px;}
+    .hero-text h1 span{color:#fbbf24;}
+    .hero-text p{color:#bfdbfe;font-size:15px;line-height:1.6;margin-bottom:28px;}
+    .hero-btns{display:flex;gap:12px;flex-wrap:wrap;}
+    .btn-hero-main{
+      background:#fbbf24;color:#111827;padding:14px 32px;border-radius:8px;
+      font-weight:800;font-size:15px;transition:background .2s;
+    }
+    .btn-hero-main:hover{background:#f59e0b;}
+    .btn-hero-sec{
+      background:#ffffff20;color:#fff;padding:14px 32px;border-radius:8px;
+      font-weight:700;font-size:15px;border:2px solid #ffffff30;
+    }
+    .hero-img{width:280px;flex-shrink:0;}
+    .hero-img img{border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:100%;}
+
+    /* ── TRUST BAR ───────────────────────── */
+    .trust-bar{
+      background:var(--white);border-bottom:1px solid var(--border);
+      display:flex;justify-content:center;flex-wrap:wrap;
+      gap:0;
+    }
+    .trust-item{
+      display:flex;align-items:center;gap:8px;padding:14px 28px;
+      border-right:1px solid var(--border);font-size:13px;font-weight:500;
+    }
+    .trust-item:last-child{border-right:none;}
+    .trust-item .ic{font-size:18px;}
+
+    /* ── SEÇÃO ────────────────────────────── */
+    .section{padding:48px 5%;max-width:1280px;margin:0 auto;}
+    .sec-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:28px;}
+    .sec-header h2{font-size:20px;font-weight:800;}
+    .sec-header a{font-size:13px;color:var(--accent);font-weight:600;}
+
+    /* ── PRODUTO CARD ─────────────────────── */
+    .produtos-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+      gap:16px;
+    }
+    .prod-card{
+      background:var(--white);border:1px solid var(--border);border-radius:12px;
+      overflow:hidden;transition:box-shadow .2s,transform .15s;cursor:pointer;
+      display:flex;flex-direction:column;
+    }
+    .prod-card:hover{box-shadow:0 8px 32px rgba(0,0,0,.1);transform:translateY(-2px);}
+    .prod-img-wrap{
+      background:#f3f4f6;position:relative;overflow:hidden;
+      aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    }
+    .prod-img-wrap img{width:100%;height:100%;object-fit:cover;transition:transform .3s;}
+    .prod-card:hover .prod-img-wrap img{transform:scale(1.04);}
+    .badge-hot{
+      position:absolute;top:10px;left:10px;
+      background:var(--red);color:#fff;font-size:10px;font-weight:800;
+      padding:3px 8px;border-radius:4px;letter-spacing:.3px;
+    }
+    .badge-new{background:var(--green);}
+    .badge-sale{background:var(--yellow);}
+    .frete-badge{
+      position:absolute;bottom:10px;right:10px;
+      background:#111827cc;color:#fff;font-size:10px;font-weight:700;
+      padding:3px 8px;border-radius:4px;
+    }
+    .prod-info{padding:14px;flex:1;display:flex;flex-direction:column;}
+    .prod-info h3{font-size:13px;font-weight:600;line-height:1.4;margin-bottom:6px;color:var(--text);}
+    .stars-row{display:flex;align-items:center;gap:4px;margin-bottom:8px;}
+    .stars{color:#f59e0b;font-size:12px;}
+    .stars-count{font-size:11px;color:var(--muted);}
+    .preco-wrap{margin-top:auto;}
+    .preco-de{font-size:11px;color:var(--muted);text-decoration:line-through;}
+    .preco-por{font-size:20px;font-weight:800;color:var(--primary);line-height:1.1;}
+    .preco-parcel{font-size:11px;color:var(--muted);margin-bottom:10px;}
+    .btn-comprar{
+      display:block;background:var(--accent);color:#fff;
+      text-align:center;padding:10px;border-radius:8px;
+      font-size:13px;font-weight:700;border:none;cursor:pointer;
+      transition:background .15s;width:100%;
+    }
+    .btn-comprar:hover{background:var(--accent-h);}
+
+    /* ── PRODUTO DESTAQUE (hero produto) ─── */
+    .destaque-wrap{
+      background:var(--white);border:1px solid var(--border);border-radius:16px;
+      display:grid;grid-template-columns:1fr 1fr;overflow:hidden;
+    }
+    .destaque-imgs{background:#f9fafb;padding:32px;display:flex;flex-direction:column;gap:12px;}
+    .destaque-main-img{aspect-ratio:1;border-radius:12px;overflow:hidden;background:#fff;border:1px solid var(--border);}
+    .destaque-main-img img{width:100%;height:100%;object-fit:cover;}
+    .destaque-thumbs{display:flex;gap:8px;}
+    .destaque-thumbs img{
+      width:64px;height:64px;object-fit:cover;border-radius:8px;
+      border:2px solid var(--border);cursor:pointer;transition:border-color .15s;
+    }
+    .destaque-thumbs img.ativo,.destaque-thumbs img:hover{border-color:var(--accent);}
+    .destaque-info{padding:36px;}
+    .destaque-info .tag-categoria{font-size:12px;color:var(--accent);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;}
+    .destaque-info h2{font-size:24px;font-weight:800;margin-bottom:10px;line-height:1.3;}
+    .destaque-info .avaliacao{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+    .destaque-info .avaliacao .num{font-size:13px;color:var(--muted);}
+    .destaque-info .preco-de{font-size:14px;color:var(--muted);text-decoration:line-through;}
+    .destaque-info .preco-por{font-size:36px;font-weight:900;color:var(--primary);}
+    .destaque-info .preco-parcel{font-size:13px;color:var(--muted);margin-bottom:20px;}
+    .desconto-pill{
+      background:#fee2e2;color:var(--red);font-size:12px;font-weight:700;
+      padding:3px 10px;border-radius:4px;display:inline-block;margin-bottom:4px;
+    }
+    .beneficios{list-style:none;margin-bottom:24px;}
+    .beneficios li{padding:7px 0;font-size:14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+    .beneficios li:last-child{border-bottom:none;}
+    .beneficios li .ic{color:var(--green);font-size:16px;}
+    .btn-comprar-grande{
+      display:block;background:var(--accent);color:#fff;
+      text-align:center;padding:15px;border-radius:10px;
+      font-size:16px;font-weight:800;margin-bottom:10px;
+      transition:background .15s;
+    }
+    .btn-comprar-grande:hover{background:var(--accent-h);}
+    .btn-wish{
+      display:block;border:1.5px solid var(--border);color:var(--muted);
+      text-align:center;padding:13px;border-radius:10px;font-size:14px;font-weight:600;
+      transition:border-color .15s;
+    }
+    .btn-wish:hover{border-color:var(--accent);color:var(--accent);}
+    .garantia-box{
+      background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;
+      padding:12px 16px;font-size:12px;color:var(--green);
+      display:flex;align-items:center;gap:8px;margin-top:16px;font-weight:600;
+    }
+
+    /* ── SEÇÃO DINÂMICA HORÁRIO ──────────── */
+    #dyn-section{
+      background:linear-gradient(135deg,#eff6ff,#dbeafe);
+      border:1.5px solid #bfdbfe;border-radius:12px;
+      padding:24px 28px;margin:0 5% 32px;
+      display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
+    }
+    #dyn-section .dyn-left h3{font-size:17px;font-weight:800;color:var(--primary);margin-bottom:4px;}
+    #dyn-section .dyn-left p{font-size:13px;color:#1d4ed8;}
+    #dyn-section .btn-dyn{
+      background:var(--accent);color:#fff;padding:12px 28px;
+      border-radius:8px;font-size:14px;font-weight:700;white-space:nowrap;
+    }
+
+    /* ── DEPOIMENTOS ───────────────────── */
+    .depos-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
+    .depo-card{
+      background:var(--white);border:1px solid var(--border);border-radius:12px;padding:22px;
+    }
+    .depo-card .header-depo{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+    .depo-avatar{
+      width:40px;height:40px;border-radius:50%;background:var(--accent);
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;font-weight:800;font-size:16px;flex-shrink:0;
+    }
+    .depo-card .nome{font-size:14px;font-weight:700;}
+    .depo-card .produto-ref{font-size:11px;color:var(--muted);}
+    .depo-card .stars{color:#f59e0b;font-size:13px;margin-bottom:8px;}
+    .depo-card p{font-size:13px;color:#374151;line-height:1.6;}
+    .depo-card .foto-produto{
+      margin-top:12px;border-radius:8px;overflow:hidden;
+      border:1px solid var(--border);aspect-ratio:16/9;background:#f9fafb;
+    }
+    .depo-card .foto-produto img{width:100%;height:100%;object-fit:cover;}
+
+    /* ── POPUP RETENÇÃO ─────────────────── */
+    #popup{display:none;position:fixed;inset:0;background:#00000080;z-index:999;align-items:center;justify-content:center;}
+    #popup.show{display:flex;}
+    .popup-inner{
+      background:#fff;border-radius:16px;padding:36px;max-width:420px;
+      text-align:center;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.2);
+    }
+    .popup-inner .discount-badge{
+      background:#fee2e2;color:var(--red);font-size:13px;font-weight:800;
+      padding:6px 18px;border-radius:50px;display:inline-block;margin-bottom:14px;
+    }
+    .popup-inner h3{font-size:22px;font-weight:900;margin-bottom:8px;color:var(--primary);}
+    .popup-inner p{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6;}
+    .popup-inner .btn-popup{
+      display:block;background:var(--accent);color:#fff;
+      padding:14px;border-radius:10px;font-weight:800;font-size:15px;margin-bottom:10px;
+    }
+    .popup-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;}
+    .popup-skip{font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline;}
+
+    /* ── RODAPÉ ─────────────────────────── */
+    footer{background:var(--primary);color:#9ca3af;padding:48px 5% 24px;}
+    .footer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:32px;margin-bottom:40px;}
+    .footer-grid h4{color:#fff;font-size:14px;font-weight:700;margin-bottom:14px;}
+    .footer-grid ul{list-style:none;}
+    .footer-grid ul li{margin-bottom:8px;}
+    .footer-grid ul li a{font-size:13px;color:#9ca3af;transition:color .15s;}
+    .footer-grid ul li a:hover{color:#fff;}
+    .footer-bottom{border-top:1px solid #374151;padding-top:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px;}
+    .pagamentos{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+    .pay-badge{background:#374151;color:#d1d5db;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;}
+
+    /* ── RESPONSIVO ───────────────────── */
+    @media(max-width:768px){
+      .destaque-wrap{grid-template-columns:1fr;}
+      .hero-img{display:none;}
+      .trust-item{padding:12px 16px;}
+      .trust-item:nth-child(n+3){display:none;}
+      #dyn-section{flex-direction:column;}
+      .header-actions a:not(.btn-cart){display:none;}
+    }
+    @media(max-width:480px){
+      .sec-header{flex-direction:column;gap:4px;}
+      .header-inner{gap:12px;}
+    }
+  </style>
+</head>
+<body>
+
+<!-- BARRA TOPO -->
+<div class="top-bar">
+  🚚 <strong>Frete grátis</strong> em todos os pedidos hoje — oferta termina em <span id="countdown">--:--:--</span>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <div class="logo">TechDrop</div>
+    <div class="search-bar">
+      <svg width="16" height="16" fill="none" stroke="#9ca3af" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" placeholder="Buscar produtos (fone, powerbank, carregador...)"/>
+    </div>
+    <div class="header-actions">
+      <a href="#">👤 Minha conta</a>
+      <button class="btn-cart" onclick="abrirCarrinho()">
+        🛒 Carrinho <span class="cart-badge" id="cart-count">0</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- CATEGORIAS -->
+<nav class="cat-nav">
+  <a href="#" class="ativo">Todos</a>
+  <a href="#">Fones & Áudio</a>
+  <a href="#">Carregadores</a>
+  <a href="#">Powerbanks</a>
+  <a href="#">Acessórios</a>
+  <a href="#">Setup Gamer</a>
+  <a href="#">Novidades</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero-banner">
+  <div class="hero-text">
+    <div class="tag" id="hero-tag">⚡ Oferta do dia</div>
+    <h1 id="hero-titulo">Tecnologia premium<br><span id="hero-destaque">com preço que faz sentido</span></h1>
+    <p id="hero-sub">Fones, powerbanks e carregadores selecionados a dedo. Direto na sua casa, sem complicação.</p>
+    <div class="hero-btns">
+      <a href="#produtos" class="btn-hero-main" id="hero-cta">Ver ofertas de hoje</a>
+      <a href="#como-funciona" class="btn-hero-sec">Como funciona?</a>
+    </div>
+  </div>
+  <div class="hero-img">
+    <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop&q=80" alt="Fone de ouvido premium" loading="eager"/>
+  </div>
+</div>
+
+<!-- TRUST BAR -->
+<div class="trust-bar">
+  <div class="trust-item"><span class="ic">🚚</span> Frete grátis em todos os pedidos</div>
+  <div class="trust-item"><span class="ic">🔒</span> Pagamento 100% seguro</div>
+  <div class="trust-item"><span class="ic">↩️</span> 7 dias para devolução</div>
+  <div class="trust-item"><span class="ic">⭐</span> +3.800 avaliações 5 estrelas</div>
+</div>
+
+<!-- BANNER DINÂMICO -->
+<div id="dyn-section">
+  <div class="dyn-left">
+    <h3 id="dyn-titulo">🔥 Oferta especial agora</h3>
+    <p id="dyn-texto">Produtos com desconto por tempo limitado.</p>
+  </div>
+  <a href="#produto-destaque" class="btn-dyn" id="dyn-cta">Ver oferta →</a>
+</div>
+
+<!-- PRODUTO DESTAQUE -->
+<div class="section" id="produto-destaque">
+  <div class="sec-header">
+    <h2>⭐ Produto em destaque</h2>
+    <a href="#produtos">Ver todos →</a>
+  </div>
+  <div class="destaque-wrap">
+    <div class="destaque-imgs">
+      <div class="destaque-main-img">
+        <img id="main-foto" src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=600&fit=crop&q=80" alt="Fone ANC Over-Ear"/>
+      </div>
+      <div class="destaque-thumbs">
+        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=120&h=120&fit=crop&q=80" class="ativo" onclick="trocarFoto(this,'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=600&fit=crop&q=80')" alt=""/>
+        <img src="https://images.unsplash.com/photo-1583394838336-acd977736f90?w=120&h=120&fit=crop&q=80" onclick="trocarFoto(this,'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=600&h=600&fit=crop&q=80')" alt=""/>
+        <img src="https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=120&h=120&fit=crop&q=80" onclick="trocarFoto(this,'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600&h=600&fit=crop&q=80')" alt=""/>
+        <img src="https://images.unsplash.com/photo-1484704849700-f032a568e944?w=120&h=120&fit=crop&q=80" onclick="trocarFoto(this,'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=600&h=600&fit=crop&q=80')" alt=""/>
+      </div>
+    </div>
+    <div class="destaque-info">
+      <div class="tag-categoria">Fones & Áudio</div>
+      <h2>Fone Over-Ear ANC Pro — Cancelamento Ativo de Ruído</h2>
+      <div class="avaliacao">
+        <span class="stars">★★★★★</span>
+        <span class="num">4.9 · 312 avaliações</span>
+      </div>
+      <div class="desconto-pill">-52% OFF hoje</div>
+      <div class="preco-de">De R$ 389,00</div>
+      <div class="preco-por">R$ 189,00</div>
+      <div class="preco-parcel">ou 3x de R$ 63,00 sem juros no cartão</div>
+      <ul class="beneficios">
+        <li><span class="ic">✓</span> Cancelamento ativo de ruído (ANC)</li>
+        <li><span class="ic">✓</span> 40 horas de bateria</li>
+        <li><span class="ic">✓</span> Bluetooth 5.3 — conexão estável</li>
+        <li><span class="ic">✓</span> Driver 40mm — graves potentes</li>
+        <li><span class="ic">✓</span> Dobrável — fácil de guardar</li>
+      </ul>
+      <button class="btn-comprar-grande" onclick="adicionarDestaque()">
+        🛒 Adicionar ao carrinho — R$ 189,00
+      </button>
+      <a href="#" class="btn-wish">♡ Adicionar à lista de desejos</a>
+      <div class="garantia-box">
+        🛡️ Garantia de 7 dias. Se não gostar, devolvemos 100% do valor.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- GRADE DE PRODUTOS -->
+<div class="section" id="produtos">
+  <div class="sec-header">
+    <h2>Mais vendidos esta semana</h2>
+    <a href="#">Ver todos</a>
+  </div>
+  <div class="produtos-grid">
+
+    <div class="prod-card">
+      <div class="prod-img-wrap">
+        <img src="https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=400&h=400&fit=crop&q=80" alt="Powerbank 20000mAh" loading="lazy"/>
+        <span class="badge-hot">🔥 Top</span>
+        <span class="frete-badge">Frete grátis</span>
+      </div>
+      <div class="prod-info">
+        <h3>Powerbank 20.000mAh Ultra Slim — Carga Rápida 22W</h3>
+        <div class="stars-row"><span class="stars">★★★★★</span><span class="stars-count">4.8 (541)</span></div>
+        <div class="preco-wrap">
+          <div class="preco-de">R$ 219,00</div>
+          <div class="preco-por">R$ 97<small>,00</small></div>
+          <div class="preco-parcel">3x de R$ 32,33 sem juros</div>
+          <button class="btn-comprar" onclick="adicionarCarrinhoProd(this)">🛒 Adicionar ao carrinho</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="prod-card">
+      <div class="prod-img-wrap">
+        <img src="https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400&h=400&fit=crop&q=80" alt="Earbuds TWS" loading="lazy"/>
+        <span class="badge-hot badge-new">Novo</span>
+        <span class="frete-badge">Frete grátis</span>
+      </div>
+      <div class="prod-info">
+        <h3>Earbuds TWS Pro 5.3 — ANC + 36h Bateria + IPX5</h3>
+        <div class="stars-row"><span class="stars">★★★★★</span><span class="stars-count">4.7 (894)</span></div>
+        <div class="preco-wrap">
+          <div class="preco-de">R$ 259,00</div>
+          <div class="preco-por">R$ 127<small>,00</small></div>
+          <div class="preco-parcel">3x de R$ 42,33 sem juros</div>
+          <button class="btn-comprar" onclick="adicionarCarrinhoProd(this)">🛒 Adicionar ao carrinho</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="prod-card">
+      <div class="prod-img-wrap">
+        <img src="https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&h=400&fit=crop&q=80" alt="Carregador GaN 65W" loading="lazy"/>
+        <span class="badge-hot">Top rated</span>
+        <span class="frete-badge">Frete grátis</span>
+      </div>
+      <div class="prod-info">
+        <h3>Carregador GaN 65W 3 Portas — Notebook + Celular + Tablet</h3>
+        <div class="stars-row"><span class="stars">★★★★★</span><span class="stars-count">4.9 (726)</span></div>
+        <div class="preco-wrap">
+          <div class="preco-de">R$ 199,00</div>
+          <div class="preco-por">R$ 89<small>,00</small></div>
+          <div class="preco-parcel">3x de R$ 29,66 sem juros</div>
+          <button class="btn-comprar" onclick="adicionarCarrinhoProd(this)">🛒 Adicionar ao carrinho</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="prod-card">
+      <div class="prod-img-wrap">
+        <img src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&h=400&fit=crop&q=80" alt="Mouse sem fio" loading="lazy"/>
+        <span class="badge-hot badge-sale">Oferta</span>
+        <span class="frete-badge">Frete grátis</span>
+      </div>
+      <div class="prod-info">
+        <h3>Mouse Sem Fio Silencioso 2.4G — 18 Meses de Bateria</h3>
+        <div class="stars-row"><span class="stars">★★★★★</span><span class="stars-count">4.8 (2.107)</span></div>
+        <div class="preco-wrap">
+          <div class="preco-de">R$ 149,00</div>
+          <div class="preco-por">R$ 67<small>,00</small></div>
+          <div class="preco-parcel">3x de R$ 22,33 sem juros</div>
+          <button class="btn-comprar" onclick="adicionarCarrinhoProd(this)">🛒 Adicionar ao carrinho</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="prod-card">
+      <div class="prod-img-wrap">
+        <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop&q=80" alt="Ring Light" loading="lazy"/>
+        <span class="badge-hot">Em alta</span>
+        <span class="frete-badge">Frete grátis</span>
+      </div>
+      <div class="prod-info">
+        <h3>Ring Light LED 26cm — 3 Tons + 10 Brilhos + Suporte</h3>
+        <div class="stars-row"><span class="stars">★★★★☆</span><span class="stars-count">4.7 (673)</span></div>
+        <div class="preco-wrap">
+          <div class="preco-de">R$ 179,00</div>
+          <div class="preco-por">R$ 84<small>,00</small></div>
+          <div class="preco-parcel">3x de R$ 28,00 sem juros</div>
+          <button class="btn-comprar" onclick="adicionarCarrinhoProd(this)">🛒 Adicionar ao carrinho</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="prod-card">
+      <div class="prod-img-wrap">
+        <img src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&h=400&fit=crop&q=80" alt="Cabo USB-C" loading="lazy"/>
+        <span class="frete-badge">Frete grátis</span>
+      </div>
+      <div class="prod-info">
+        <h3>Cabo USB-C 100W Reforçado 2m — Nylon Trançado PD</h3>
+        <div class="stars-row"><span class="stars">★★★★★</span><span class="stars-count">4.8 (4.521)</span></div>
+        <div class="preco-wrap">
+          <div class="preco-de">R$ 89,00</div>
+          <div class="preco-por">R$ 39<small>,00</small></div>
+          <div class="preco-parcel">ou 2x de R$ 19,50 sem juros</div>
+          <button class="btn-comprar" onclick="adicionarCarrinhoProd(this)">🛒 Adicionar ao carrinho</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- COMO FUNCIONA -->
+<div style="background:var(--white);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:48px 5%;" id="como-funciona">
+  <div style="max-width:1280px;margin:0 auto;">
+    <div class="sec-header"><h2>Como funciona a entrega</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;">
+      <div style="text-align:center;padding:20px;">
+        <div style="font-size:40px;margin-bottom:14px;">🛒</div>
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">1. Você compra</h3>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;">Escolhe o produto, paga com segurança via Pix ou cartão.</p>
+      </div>
+      <div style="text-align:center;padding:20px;">
+        <div style="font-size:40px;margin-bottom:14px;">📦</div>
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">2. Separamos seu pedido</h3>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;">Confirmamos com o fornecedor e despachamos em até 48h.</p>
+      </div>
+      <div style="text-align:center;padding:20px;">
+        <div style="font-size:40px;margin-bottom:14px;">✈️</div>
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">3. Em trânsito</h3>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;">Rastreamento disponível. Prazo de 15 a 25 dias úteis.</p>
+      </div>
+      <div style="text-align:center;padding:20px;">
+        <div style="font-size:40px;margin-bottom:14px;">🏠</div>
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">4. Chega na sua casa</h3>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;">Receba, aprove. Se não gostar, devolvemos em 7 dias.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DEPOIMENTOS -->
+<div class="section">
+  <div class="sec-header"><h2>O que nossos clientes dizem</h2><a href="#">Ver todas →</a></div>
+  <div class="depos-grid">
+    <div class="depo-card">
+      <div class="header-depo">
+        <div class="depo-avatar">M</div>
+        <div><div class="nome">Marcos T.</div><div class="produto-ref">Fone Over-Ear ANC Pro</div></div>
+      </div>
+      <div class="stars">★★★★★</div>
+      <p>"Chegou em 19 dias, qualidade surpreendente. O ANC é real — uso no metrô e não ouço nada. Melhor custo-benefício que já vi."</p>
+      <div class="foto-produto">
+        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=225&fit=crop&q=80" alt="Foto do produto recebido" loading="lazy"/>
+      </div>
+    </div>
+    <div class="depo-card">
+      <div class="header-depo">
+        <div class="depo-avatar" style="background:#16a34a;">A</div>
+        <div><div class="nome">Ana R.</div><div class="produto-ref">Powerbank 20.000mAh</div></div>
+      </div>
+      <div class="stars">★★★★★</div>
+      <p>"Carregou meu celular 3 vezes e ainda tinha bateria. Embalagem chegou perfeita, sem nenhum amassado. Já recomendei para todo mundo."</p>
+      <div class="foto-produto">
+        <img src="https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=400&h=225&fit=crop&q=80" alt="Foto do produto recebido" loading="lazy"/>
+      </div>
+    </div>
+    <div class="depo-card">
+      <div class="header-depo">
+        <div class="depo-avatar" style="background:#d97706;">R</div>
+        <div><div class="nome">Rodrigo T.</div><div class="produto-ref">Carregador GaN 65W</div></div>
+      </div>
+      <div class="stars">★★★★★</div>
+      <p>"Carrega notebook, celular e tablet ao mesmo tempo. Esqueci o carregador original na gaveta. Esse GaN é outra categoria."</p>
+      <div class="foto-produto">
+        <img src="https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&h=225&fit=crop&q=80" alt="Foto do produto recebido" loading="lazy"/>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RODAPÉ -->
+<footer>
+  <div class="footer-grid">
+    <div>
+      <h4>TechDrop Brasil</h4>
+      <p style="font-size:13px;line-height:1.7;color:#9ca3af;">Curadoria de tecnologia com o melhor custo-benefício. Entregamos em todo o Brasil.</p>
+      <div class="pagamentos">
+        <span class="pay-badge">Pix</span>
+        <span class="pay-badge">Visa</span>
+        <span class="pay-badge">Master</span>
+        <span class="pay-badge">Boleto</span>
+      </div>
+    </div>
+    <div>
+      <h4>Atendimento</h4>
+      <ul>
+        <li><a href="#">Rastrear pedido</a></li>
+        <li><a href="#">Política de devolução</a></li>
+        <li><a href="#">Prazo de entrega</a></li>
+        <li><a href="#">FAQ</a></li>
+        <li><a href="#">Contato</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Categorias</h4>
+      <ul>
+        <li><a href="#">Fones & Áudio</a></li>
+        <li><a href="#">Carregadores</a></li>
+        <li><a href="#">Powerbanks</a></li>
+        <li><a href="#">Setup Gamer</a></li>
+        <li><a href="#">Acessórios</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Informações</h4>
+      <ul>
+        <li><a href="#">Sobre nós</a></li>
+        <li><a href="#">Política de Privacidade</a></li>
+        <li><a href="#">Termos de Uso</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 TechDrop Brasil. Produtos enviados do fornecedor internacional. Prazo: 15–25 dias.</span>
+    <span>CNPJ: 00.000.000/0001-00</span>
+  </div>
+</footer>
+
+<!-- CARRINHO LATERAL -->
+<div class="cart-overlay" id="cart-overlay" onclick="fecharCarrinho()"></div>
+<div class="cart-drawer" id="cart-drawer">
+  <div class="cart-header">
+    <h3>🛒 Meu carrinho</h3>
+    <button class="cart-close" onclick="fecharCarrinho()">✕</button>
+  </div>
+  <div class="cart-items" id="cart-items">
+    <div class="cart-empty">Seu carrinho está vazio.<br>Adicione produtos para continuar.</div>
+  </div>
+  <div class="cart-footer" id="cart-footer" style="display:none;">
+    <div class="cart-total"><span>Total</span><span id="cart-total-val">R$ 0,00</span></div>
+    <a href="/checkout.html" class="btn-checkout">Finalizar compra →</a>
+    <span class="btn-continuar" onclick="fecharCarrinho()">← Continuar comprando</span>
+  </div>
+</div>
+
+<!-- POPUP RETENÇÃO -->
+<div id="popup">
+  <div class="popup-inner">
+    <button class="popup-close" onclick="fecharPopup()">✕</button>
+    <div class="discount-badge">CUPOM EXCLUSIVO</div>
+    <h3 id="popup-titulo">Espera! Temos uma oferta para você</h3>
+    <p id="popup-texto">Use o cupom <strong>TECHDROP10</strong> e ganhe 10% de desconto no seu primeiro pedido.</p>
+    <a href="#produtos" class="btn-popup" onclick="fecharPopup()">Usar cupom agora</a>
+    <span class="popup-skip" onclick="fecharPopup()">Não, prefiro pagar o preço cheio</span>
+  </div>
+</div>
+
+<script>
+// ── GANCHOS POR HORÁRIO ──────────────────────────────
+const GANCHOS = {
+  manha_cedo: {
+    tag:"☀️ Bom dia! Oferta matinal",
+    titulo:"Comece o dia com o",destaque:"setup certo",
+    sub:"Fones e carregadores para quem não aceita tecnologia medíocre.",
+    cta:"Ver ofertas da manhã",
+    dyn_titulo:"☀️ Desconto extra até às 9h",
+    dyn_texto:"Compras feitas antes das 9h têm frete expresso prioritário.",
+    dyn_cta:"Aproveitar agora →",
+    popup_titulo:"Oferta matinal exclusiva!",
+    popup_texto:'Use o cupom <strong>MANHA10</strong> e ganhe 10% off nas compras feitas agora.',
+  },
+  manha:{
+    tag:"⚡ Mais vendidos agora",
+    titulo:"Tecnologia premium",destaque:"com preço que faz sentido",
+    sub:"Curadoria semanal dos melhores custo-benefício do mercado tech.",
+    cta:"Ver mais vendidos",
+    dyn_titulo:"⚡ Os 3 mais vendidos desta semana",
+    dyn_texto:"Powerbank, fone ANC e carregador GaN — combo que todo mundo quer.",
+    dyn_cta:"Ver combo →",
+    popup_titulo:"Não saia sem conferir!",
+    popup_texto:'Use o cupom <strong>TECHDROP10</strong> e pague menos no seu primeiro pedido.',
+  },
+  almoco:{
+    tag:"🍔 Pausa do almoço",
+    titulo:"5 minutos de pausa,",destaque:"1 upgrade que dura anos",
+    sub:"Aproveite a pausa para escolher o seu próximo acessório tech.",
+    cta:"Aproveitar o almoço",
+    dyn_titulo:"🍔 Oferta relâmpago do almoço",
+    dyn_texto:"Desconto especial nos pedidos feitos entre 12h e 14h.",
+    dyn_cta:"Ver oferta →",
+    popup_titulo:"Oferta do almoço!",
+    popup_texto:'Compre agora e use o cupom <strong>ALMOCO10</strong> para 10% off.',
+  },
+  tarde:{
+    tag:"📦 Entrega garantida",
+    titulo:"Encomende hoje,",destaque:"receba em 15 dias",
+    sub:"Pedidos confirmados à tarde têm prioridade no despacho.",
+    cta:"Encomendar agora",
+    dyn_titulo:"📦 Pedidos da tarde têm prioridade",
+    dyn_texto:"Despachamos em até 48h após confirmação do pagamento.",
+    dyn_cta:"Garantir meu pedido →",
+    popup_titulo:"Não perca essa chance!",
+    popup_texto:'Cupom <strong>TECHDROP10</strong> válido por mais alguns minutos.',
+  },
+  noite_cedo:{
+    tag:"🌆 Maior desconto do dia",
+    titulo:"Das 18h às 21h:",destaque:"o melhor preço do dia",
+    sub:"Estatisticamente o melhor horário para encontrar as melhores ofertas.",
+    cta:"Ver ofertas da noite",
+    dyn_titulo:"🌆 Horário de ouro — desconto máximo",
+    dyn_texto:"Das 18h às 21h os descontos são maiores. Não perca essa janela.",
+    dyn_cta:"Aproveitar agora →",
+    popup_titulo:"⭐ Oferta noturna ativa!",
+    popup_texto:'Use <strong>NOITE15</strong> agora e ganhe 15% off. Só até as 21h!',
+  },
+  noite:{
+    tag:"🌙 Oferta de última hora",
+    titulo:"Última chance hoje:",destaque:"preço de madrugada",
+    sub:"As melhores decisões de compra de tech são tomadas à noite.",
+    cta:"Ver oferta de madrugada",
+    dyn_titulo:"🌙 Oferta válida só até meia-noite",
+    dyn_texto:"Aproveite o desconto especial antes que o dia vire.",
+    dyn_cta:"Garantir agora →",
+    popup_titulo:"🌙 Última chance hoje!",
+    popup_texto:'Use <strong>MEIA10</strong> antes da meia-noite e ganhe 10% off.',
+  },
+};
+
+function getChave(){
+  const h = new Date().getHours();
+  if(h>=6 && h<9)  return "manha_cedo";
+  if(h>=9 && h<12) return "manha";
+  if(h>=12&& h<14) return "almoco";
+  if(h>=14&& h<18) return "tarde";
+  if(h>=18&& h<21) return "noite_cedo";
+  return "noite";
+}
+function aplicarGanchos(){
+  const g = GANCHOS[getChave()];
+  document.getElementById("hero-tag").textContent    = g.tag;
+  document.getElementById("hero-titulo").childNodes[0].textContent = g.titulo+" ";
+  document.getElementById("hero-destaque").textContent = g.destaque;
+  document.getElementById("hero-sub").textContent    = g.sub;
+  document.getElementById("hero-cta").textContent    = g.cta;
+  document.getElementById("dyn-titulo").textContent  = g.dyn_titulo;
+  document.getElementById("dyn-texto").textContent   = g.dyn_texto;
+  document.getElementById("dyn-cta").textContent     = g.dyn_cta;
+  document.getElementById("popup-titulo").textContent= g.popup_titulo;
+  document.getElementById("popup-texto").innerHTML   = g.popup_texto;
+}
+
+// ── CONTADOR ─────────────────────────────────────────
+function tick(){
+  const agora=new Date(), fim=new Date();
+  fim.setHours(23,59,59,0);
+  let d=Math.max(0,Math.floor((fim-agora)/1000));
+  const h=String(Math.floor(d/3600)).padStart(2,"0");
+  const m=String(Math.floor(d%3600/60)).padStart(2,"0");
+  const s=String(d%60).padStart(2,"0");
+  document.getElementById("countdown").textContent=`${h}:${m}:${s}`;
+  setTimeout(tick,1000);
+}
+
+// ── GALERIA ─────────────────────────────────────────
+function trocarFoto(el,src){
+  document.getElementById("main-foto").src=src;
+  document.querySelectorAll(".destaque-thumbs img").forEach(i=>i.classList.remove("ativo"));
+  el.classList.add("ativo");
+}
+
+// ── POPUP EXIT INTENT ─────────────────────────────
+let popupMostrado=false;
+document.addEventListener("mouseleave",e=>{
+  if(e.clientY<10&&!popupMostrado){
+    document.getElementById("popup").classList.add("show");
+    popupMostrado=true;
+  }
+});
+let lastY=0;
+window.addEventListener("scroll",()=>{
+  const cur=window.scrollY;
+  if(lastY-cur>80&&cur>400&&!popupMostrado){
+    document.getElementById("popup").classList.add("show");
+    popupMostrado=true;
+  }
+  lastY=cur;
+});
+function fecharPopup(){document.getElementById("popup").classList.remove("show");}
+
+// ── INIT ─────────────────────────────────────────────
+aplicarGanchos();
+tick();
+
+// ══════════════════════════════════════════════════════
+// CARRINHO
+// ══════════════════════════════════════════════════════
+let carrinho = JSON.parse(localStorage.getItem("carrinho") || "[]");
+
+function _salvarCarrinho() {
+  localStorage.setItem("carrinho", JSON.stringify(carrinho));
+  atualizarBadge();
+  renderCarrinho();
+}
+
+function atualizarBadge() {
+  const total = carrinho.reduce((s, i) => s + (i.quantidade || 1), 0);
+  document.getElementById("cart-count").textContent = total;
+}
+
+function _extrairProdutoDoCard(btn) {
+  const card = btn.closest(".prod-card");
+  const img   = card.querySelector(".prod-img-wrap img");
+  const nome  = card.querySelector("h3").textContent;
+  const precoEl = card.querySelector(".preco-por");
+  // Pega só o texto direto do elemento, ignorando o <small>,00</small>
+  const precoTxt = Array.from(precoEl.childNodes)
+    .filter(n => n.nodeType === 3)
+    .map(n => n.textContent.replace(/[^\d]/g, ""))
+    .join("");
+  return {
+    id:         nome.replace(/\s+/g, "-").toLowerCase().slice(0, 20) + "-" + Date.now(),
+    titulo_pt:  nome,
+    imagem:     img ? img.src : "",
+    preco_venda: parseInt(precoTxt) || 0,
+    quantidade:  1,
+    link_aliexpress: "",
+  };
+}
+
+function adicionarCarrinhoProd(btn) {
+  const prod = _extrairProdutoDoCard(btn);
+  const existente = carrinho.find(i => i.titulo_pt === prod.titulo_pt);
+  if (existente) {
+    existente.quantidade = (existente.quantidade || 1) + 1;
+  } else {
+    carrinho.push(prod);
+  }
+  _salvarCarrinho();
+  abrirCarrinho();
+  btn.textContent = "✓ Adicionado!";
+  setTimeout(() => { btn.textContent = "🛒 Adicionar ao carrinho"; }, 2000);
+}
+
+function adicionarDestaque() {
+  const prod = {
+    id:          "fone-anc-pro",
+    titulo_pt:   "Fone Over-Ear ANC Pro — Cancelamento Ativo de Ruído",
+    imagem:      document.getElementById("main-foto").src,
+    preco_venda: 189,
+    quantidade:  1,
+    link_aliexpress: "",
+  };
+  const existente = carrinho.find(i => i.id === prod.id);
+  if (existente) { existente.quantidade++; } else { carrinho.push(prod); }
+  _salvarCarrinho();
+  abrirCarrinho();
+}
+
+function removerItem(id) {
+  carrinho = carrinho.filter(i => i.id !== id);
+  _salvarCarrinho();
+}
+
+function renderCarrinho() {
+  const el     = document.getElementById("cart-items");
+  const footer = document.getElementById("cart-footer");
+  if (!carrinho.length) {
+    el.innerHTML = '<div class="cart-empty">Seu carrinho está vazio.<br>Adicione produtos para continuar.</div>';
+    footer.style.display = "none";
+    return;
+  }
+  let total = 0;
+  el.innerHTML = carrinho.map(item => {
+    const sub = (item.preco_venda || 0) * (item.quantidade || 1);
+    total += sub;
+    return `<div class="cart-item">
+      <img src="${item.imagem}" alt="${item.titulo_pt}"/>
+      <div class="ci-info">
+        <h4>${item.titulo_pt}</h4>
+        <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Qtd: ${item.quantidade || 1}</div>
+        <div class="ci-preco">R$ ${sub.toFixed(2).replace(".",",")}</div>
+      </div>
+      <button class="ci-remove" onclick="removerItem('${item.id}')">✕</button>
+    </div>`;
+  }).join("");
+  document.getElementById("cart-total-val").textContent = "R$ " + total.toFixed(2).replace(".", ",");
+  footer.style.display = "block";
+}
+
+function abrirCarrinho() {
+  document.getElementById("cart-overlay").classList.add("show");
+  document.getElementById("cart-drawer").classList.add("show");
+  renderCarrinho();
+}
+
+function fecharCarrinho() {
+  document.getElementById("cart-overlay").classList.remove("show");
+  document.getElementById("cart-drawer").classList.remove("show");
+}
+
+atualizarBadge();
+</script>
+</body>
+</html>

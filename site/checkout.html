@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Finalizar Pedido — TechDrop Brasil</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root{--accent:#2563eb;--green:#16a34a;--red:#dc2626;--border:#e5e7eb;--muted:#6b7280;--bg:#f9fafb;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);font-family:'Inter',sans-serif;font-size:15px;color:#111827;}
+    .header{background:#fff;border-bottom:1px solid var(--border);padding:16px 5%;display:flex;align-items:center;gap:16px;}
+    .logo{font-size:18px;font-weight:900;color:var(--accent);}
+    .breadcrumb{font-size:13px;color:var(--muted);margin-left:auto;}
+    .breadcrumb span{color:var(--accent);font-weight:600;}
+    .wrap{max-width:1000px;margin:32px auto;padding:0 5%;display:grid;grid-template-columns:1fr 380px;gap:28px;}
+    @media(max-width:700px){.wrap{grid-template-columns:1fr;}}
+
+    /* FORMULÁRIO */
+    .form-box{background:#fff;border:1px solid var(--border);border-radius:12px;padding:28px;}
+    .form-box h2{font-size:17px;font-weight:800;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+    .form-row.full{grid-template-columns:1fr;}
+    .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
+    .field input,.field select{
+      width:100%;border:1.5px solid var(--border);border-radius:8px;
+      padding:11px 14px;font-size:14px;font-family:inherit;
+      transition:border-color .15s;outline:none;
+    }
+    .field input:focus,.field select:focus{border-color:var(--accent);}
+    .section-sep{font-size:13px;font-weight:700;color:var(--muted);margin:20px 0 14px;padding-top:20px;border-top:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px;}
+
+    /* MÉTODOS DE PAGAMENTO */
+    .pay-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+    .pay-btn{
+      border:2px solid var(--border);border-radius:10px;padding:14px 8px;
+      text-align:center;cursor:pointer;transition:all .15s;font-size:13px;font-weight:700;
+    }
+    .pay-btn:hover{border-color:var(--accent);}
+    .pay-btn.ativo{border-color:var(--accent);background:#eff6ff;color:var(--accent);}
+    .pay-btn .ic{font-size:22px;display:block;margin-bottom:4px;}
+
+    /* PIX */
+    .pix-box{display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px;text-align:center;margin-bottom:16px;}
+    .pix-box.show{display:block;}
+    .pix-box .qr{width:160px;height:160px;background:#fff;border:1px solid var(--border);border-radius:8px;margin:12px auto;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);}
+    .pix-code{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;word-break:break-all;margin:8px 0;cursor:pointer;}
+
+    /* BOTÃO FINALIZAR */
+    .btn-finalizar{
+      display:block;width:100%;background:var(--accent);color:#fff;
+      padding:16px;border-radius:10px;font-size:16px;font-weight:800;
+      border:none;cursor:pointer;transition:background .15s;margin-top:6px;
+    }
+    .btn-finalizar:hover{background:#1d4ed8;}
+    .btn-finalizar:disabled{background:#93c5fd;cursor:not-allowed;}
+    .seguranca{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;}
+
+    /* RESUMO DO PEDIDO */
+    .resumo{background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px;height:fit-content;position:sticky;top:20px;}
+    .resumo h2{font-size:15px;font-weight:800;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+    .item-resumo{display:flex;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+    .item-resumo img{width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex-shrink:0;}
+    .item-resumo .info h4{font-size:13px;font-weight:600;line-height:1.4;margin-bottom:4px;}
+    .item-resumo .info .qty{font-size:12px;color:var(--muted);}
+    .item-resumo .preco{margin-left:auto;font-size:14px;font-weight:700;white-space:nowrap;}
+    .totais{margin-top:4px;}
+    .total-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;color:var(--muted);}
+    .total-row.destaque{font-size:17px;font-weight:800;color:#111827;padding-top:12px;margin-top:8px;border-top:2px solid var(--border);}
+    .frete-gratis{color:var(--green);font-weight:700;}
+    .garantia-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;font-size:12px;color:var(--green);display:flex;gap:8px;align-items:center;margin-top:16px;font-weight:600;}
+
+    /* LOADING */
+    .loading{display:none;text-align:center;padding:20px;}
+    .loading.show{display:block;}
+    .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <a href="/" class="logo">TechDrop</a>
+  <div class="breadcrumb">Carrinho → <span>Pagamento</span> → Confirmação</div>
+</div>
+
+<div class="wrap">
+
+  <!-- FORMULÁRIO -->
+  <div>
+    <div class="form-box">
+      <h2>📦 Endereço de entrega</h2>
+      <div class="form-row">
+        <div class="field"><label>Nome completo</label><input type="text" id="nome" placeholder="João da Silva" required/></div>
+        <div class="field"><label>E-mail</label><input type="email" id="email" placeholder="joao@email.com" required/></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>CPF</label><input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14"/></div>
+        <div class="field"><label>Telefone</label><input type="text" id="tel" placeholder="(11) 99999-9999"/></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>CEP</label><input type="text" id="cep" placeholder="00000-000" maxlength="9" oninput="buscarCep(this.value)"/></div>
+        <div class="field"><label>Estado</label>
+          <select id="estado">
+            <option value="">Selecione...</option>
+            <option>SP</option><option>RJ</option><option>MG</option><option>RS</option>
+            <option>PR</option><option>SC</option><option>BA</option><option>GO</option>
+            <option>DF</option><option>PE</option><option>CE</option><option>PA</option>
+            <option>AM</option><option>MS</option><option>MT</option><option>ES</option>
+            <option>RO</option><option>AC</option><option>AP</option><option>RR</option>
+            <option>TO</option><option>MA</option><option>PI</option><option>PB</option>
+            <option>RN</option><option>SE</option><option>AL</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Cidade</label><input type="text" id="cidade" placeholder="São Paulo"/></div>
+        <div class="field"><label>Bairro</label><input type="text" id="bairro" placeholder="Centro"/></div>
+      </div>
+      <div class="form-row full">
+        <div class="field"><label>Endereço</label><input type="text" id="rua" placeholder="Rua das Flores, 123"/></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Número</label><input type="text" id="numero" placeholder="123"/></div>
+        <div class="field"><label>Complemento</label><input type="text" id="complemento" placeholder="Apto 4 (opcional)"/></div>
+      </div>
+
+      <div class="section-sep">💳 Forma de pagamento</div>
+
+      <div class="pay-methods">
+        <div class="pay-btn ativo" onclick="selecionarPagamento('pix', this)">
+          <span class="ic">⚡</span>Pix
+        </div>
+        <div class="pay-btn" onclick="selecionarPagamento('cartao', this)">
+          <span class="ic">💳</span>Cartão
+        </div>
+        <div class="pay-btn" onclick="selecionarPagamento('boleto', this)">
+          <span class="ic">🧾</span>Boleto
+        </div>
+      </div>
+
+      <!-- PIX -->
+      <div class="pix-box show" id="pix-box">
+        <strong style="color:#16a34a">⚡ Pix — aprovação instantânea</strong>
+        <p style="font-size:13px;color:#6b7280;margin-top:4px;">Após clicar em finalizar, o QR Code Pix será gerado aqui.</p>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p style="font-size:14px;color:#6b7280;">Processando seu pedido...</p>
+      </div>
+
+      <button class="btn-finalizar" onclick="finalizarPedido()" id="btn-finalizar">
+        🔒 Finalizar pedido com segurança
+      </button>
+      <div class="seguranca">🔒 Ambiente 100% seguro · Dados criptografados · Mercado Pago</div>
+    </div>
+  </div>
+
+  <!-- RESUMO -->
+  <div>
+    <div class="resumo">
+      <h2>Resumo do pedido</h2>
+      <div id="itens-resumo"></div>
+      <div class="totais">
+        <div class="total-row"><span>Subtotal</span><span id="subtotal">R$ 0,00</span></div>
+        <div class="total-row"><span>Frete</span><span class="frete-gratis">Grátis</span></div>
+        <div class="total-row destaque"><span>Total</span><span id="total">R$ 0,00</span></div>
+      </div>
+      <div class="garantia-box">🛡️ Garantia de 7 dias. Não gostou? Devolvemos 100%.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── CARRINHO (lido do localStorage) ──────────────────────────────────────────
+const carrinho = JSON.parse(localStorage.getItem("carrinho") || "[]");
+let metodoPagamento = "pix";
+
+function renderResumo() {
+  if (!carrinho.length) {
+    document.getElementById("itens-resumo").innerHTML =
+      '<p style="font-size:13px;color:#6b7280;">Carrinho vazio. <a href="/">Voltar à loja</a></p>';
+    return;
+  }
+  let total = 0;
+  document.getElementById("itens-resumo").innerHTML = carrinho.map(item => {
+    total += item.preco_venda * (item.quantidade || 1);
+    return `
+    <div class="item-resumo">
+      <img src="${item.imagem}" alt="${item.titulo_pt}"/>
+      <div class="info">
+        <h4>${item.titulo_pt}</h4>
+        <div class="qty">Qtd: ${item.quantidade || 1}</div>
+      </div>
+      <div class="preco">R$ ${(item.preco_venda * (item.quantidade||1)).toFixed(2).replace(".",",")}</div>
+    </div>`;
+  }).join("");
+  const fmt = v => "R$ " + v.toFixed(2).replace(".", ",");
+  document.getElementById("subtotal").textContent = fmt(total);
+  document.getElementById("total").textContent    = fmt(total);
+}
+
+function selecionarPagamento(metodo, el) {
+  metodoPagamento = metodo;
+  document.querySelectorAll(".pay-btn").forEach(b => b.classList.remove("ativo"));
+  el.classList.add("ativo");
+  document.getElementById("pix-box").classList.toggle("show", metodo === "pix");
+}
+
+// ── CEP AUTOMÁTICO ────────────────────────────────────────────────────────────
+async function buscarCep(cep) {
+  cep = cep.replace(/\D/g, "");
+  if (cep.length !== 8) return;
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const d = await r.json();
+    if (!d.erro) {
+      document.getElementById("rua").value    = d.logradouro || "";
+      document.getElementById("bairro").value = d.bairro     || "";
+      document.getElementById("cidade").value = d.localidade || "";
+      document.getElementById("estado").value = d.uf         || "";
+    }
+  } catch(_) {}
+}
+
+// ── FINALIZAR PEDIDO ──────────────────────────────────────────────────────────
+async function finalizarPedido() {
+  const nome  = document.getElementById("nome").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const rua   = document.getElementById("rua").value.trim();
+  const cidade= document.getElementById("cidade").value.trim();
+
+  if (!nome || !email || !rua || !cidade) {
+    alert("Preencha todos os campos obrigatórios.");
+    return;
+  }
+
+  const btn = document.getElementById("btn-finalizar");
+  btn.disabled = true;
+  document.getElementById("loading").classList.add("show");
+
+  const payload = {
+    itens: carrinho,
+    metodo_pagamento: metodoPagamento,
+    cliente: {
+      nome,
+      email,
+      cpf:          document.getElementById("cpf").value,
+      telefone:     document.getElementById("tel").value,
+      endereco: {
+        cep:         document.getElementById("cep").value,
+        rua,
+        numero:      document.getElementById("numero").value,
+        complemento: document.getElementById("complemento").value,
+        bairro:      document.getElementById("bairro").value,
+        cidade,
+        estado:      document.getElementById("estado").value,
+      },
+    },
+  };
+
+  try {
+    const resp = await fetch("/api/checkout", {
+      method:  "POST",
+      headers: {"Content-Type": "application/json"},
+      body:    JSON.stringify(payload),
+    });
+    const data = await resp.json();
+
+    if (data.ok) {
+      localStorage.setItem("ultimo_pedido", data.pedido_id);
+      // Redireciona para o Mercado Pago
+      window.location.href = data.checkout_url;
+    } else {
+      alert("Erro ao processar pedido: " + data.erro);
+      btn.disabled = false;
+      document.getElementById("loading").classList.remove("show");
+    }
+  } catch(e) {
+    alert("Erro de conexão. Tente novamente.");
+    btn.disabled = false;
+    document.getElementById("loading").classList.remove("show");
+  }
+}
+
+// CPF mask
+document.getElementById("cpf").addEventListener("input", function() {
+  let v = this.value.replace(/\D/g,"");
+  v = v.replace(/(\d{3})(\d)/,"$1.$2");
+  v = v.replace(/(\d{3})(\d)/,"$1.$2");
+  v = v.replace(/(\d{3})(\d{1,2})$/,"$1-$2");
+  this.value = v;
+});
+
+renderResumo();
+</script>
+</body>
+</html>
