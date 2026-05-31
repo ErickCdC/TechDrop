@@ -13,7 +13,7 @@ from flask import request, jsonify
 ADMIN_USER   = os.getenv("ADMIN_USER",     "admin")
 ADMIN_PASS   = os.getenv("ADMIN_PASS",     "techdrop2026")
 JWT_SECRET   = os.getenv("JWT_SECRET",     "techdrop-secret-mude-isso")
-TOKEN_HORAS  = int(os.getenv("TOKEN_HORAS", "24"))
+TOKEN_HORAS  = int(os.getenv("TOKEN_HORAS", "720"))  # 30 dias
 
 
 def _hash_senha(senha: str) -> str:
