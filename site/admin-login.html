@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Admin — TechDrop</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:#0f172a;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;}
+    .card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;width:100%;max-width:380px;}
+    .logo{font-size:22px;font-weight:900;color:#3b82f6;text-align:center;margin-bottom:8px;}
+    .sub{text-align:center;font-size:13px;color:#64748b;margin-bottom:32px;}
+    label{display:block;font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+    input{width:100%;background:#0f172a;border:1.5px solid #334155;border-radius:8px;padding:12px 14px;font-size:14px;color:#f1f5f9;font-family:inherit;outline:none;margin-bottom:16px;transition:border-color .15s;}
+    input:focus{border-color:#3b82f6;}
+    .btn{width:100%;background:#3b82f6;color:#fff;padding:13px;border-radius:8px;font-size:15px;font-weight:800;border:none;cursor:pointer;transition:background .15s;}
+    .btn:hover{background:#2563eb;}
+    .btn:disabled{background:#1d4ed8;opacity:.6;cursor:not-allowed;}
+    .erro{background:#450a0a;border:1px solid #7f1d1d;color:#fca5a5;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none;}
+    .erro.show{display:block;}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">TechDrop</div>
+  <div class="sub">Painel administrativo</div>
+  <div class="erro" id="erro"></div>
+  <label>Usuário</label>
+  <input type="text" id="user" placeholder="admin" autocomplete="username"/>
+  <label>Senha</label>
+  <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"/>
+  <button class="btn" onclick="login()" id="btn">Entrar no painel</button>
+</div>
+<script>
+async function login() {
+  const user  = document.getElementById("user").value.trim();
+  const senha = document.getElementById("senha").value;
+  const btn   = document.getElementById("btn");
+  const erro  = document.getElementById("erro");
+  if (!user || !senha) { mostrarErro("Preencha usuário e senha."); return; }
+  btn.disabled = true; btn.textContent = "Entrando...";
+  try {
+    const r = await fetch("/api/admin/login", {
+      method: "POST", credentials: "include",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({user, senha}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      localStorage.setItem("admin_token", d.token);
+      window.location.href = "/admin-panel/";
+    } else {
+      mostrarErro(d.erro || "Credenciais inválidas.");
+      btn.disabled = false; btn.textContent = "Entrar no painel";
+    }
+  } catch(e) {
+    mostrarErro("Erro de conexão. Servidor offline?");
+    btn.disabled = false; btn.textContent = "Entrar no painel";
+  }
+}
+function mostrarErro(msg) {
+  const el = document.getElementById("erro");
+  el.textContent = msg; el.classList.add("show");
+}
+// Se já logado, redireciona
+if (localStorage.getItem("admin_token")) window.location.href = "/admin-panel/";
+</script>
+</body>
+</html>

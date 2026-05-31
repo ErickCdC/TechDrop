@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Painel Admin — TechDrop</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0f172a;--card:#1e293b;--card2:#0f172a;
+      --border:#334155;--accent:#3b82f6;--green:#22c55e;
+      --red:#ef4444;--yellow:#f59e0b;--text:#f1f5f9;--muted:#64748b;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;}
+
+    /* SIDEBAR */
+    .sidebar{width:220px;background:var(--card);border-right:1px solid var(--border);padding:24px 16px;flex-shrink:0;display:flex;flex-direction:column;}
+    .logo{font-size:17px;font-weight:900;color:var(--accent);margin-bottom:28px;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:2px;transition:all .15s;border:none;background:none;width:100%;text-align:left;}
+    .nav-item:hover,.nav-item.ativo{background:var(--accent)20;color:var(--text);}
+    .nav-item .ic{font-size:16px;width:20px;}
+    .sidebar-footer{margin-top:auto;}
+    .btn-site{display:block;text-align:center;background:var(--accent);color:#fff;padding:10px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;margin-bottom:8px;}
+    .btn-logout{display:block;text-align:center;background:none;border:1px solid var(--border);color:var(--muted);padding:9px;border-radius:8px;font-size:13px;cursor:pointer;width:100%;}
+
+    /* MAIN */
+    .main{flex:1;overflow-y:auto;padding:28px;}
+    .page{display:none;}
+    .page.ativa{display:block;}
+    .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+    .page-header h1{font-size:20px;font-weight:800;}
+    .hora-live{background:var(--card);border:1px solid var(--border);padding:7px 16px;border-radius:50px;font-size:12px;color:var(--muted);}
+
+    /* CARDS MÉTRICA */
+    .metricas{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;}
+    .met-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;}
+    .met-card .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+    .met-card .val{font-size:26px;font-weight:900;}
+    .met-card .delta{font-size:12px;margin-top:4px;color:var(--muted);}
+
+    /* GRID 2 */
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+    @media(max-width:900px){.grid2{grid-template-columns:1fr;}}
+
+    /* PAINEL */
+    .painel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;}
+    .painel h2{font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+
+    /* HORÁRIOS BAR */
+    .hora-bar{margin-bottom:10px;}
+    .hora-bar .topo{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+    .hora-bar .topo .per{font-weight:600;}
+    .hora-bar .topo .sc{color:var(--accent);}
+    .bgg{background:var(--bg);border-radius:50px;height:7px;overflow:hidden;}
+    .bfill{height:100%;border-radius:50px;}
+    .bfill.alto{background:linear-gradient(90deg,var(--green),var(--accent));}
+    .bfill.med{background:linear-gradient(90deg,var(--yellow),var(--accent));}
+    .bfill.baixo{background:var(--muted);}
+    .agora-tag{font-size:10px;color:var(--green);font-weight:700;margin-left:4px;}
+
+    /* ALERTAS */
+    .alerta{display:flex;gap:10px;padding:12px;border-radius:10px;font-size:13px;margin-bottom:8px;}
+    .alerta.verde{background:var(--green)15;border:1px solid var(--green)30;}
+    .alerta.amarelo{background:var(--yellow)15;border:1px solid var(--yellow)30;}
+    .alerta .ic2{font-size:16px;flex-shrink:0;}
+    .alerta .tx strong{display:block;margin-bottom:2px;font-size:13px;}
+    .alerta .tx span{color:var(--muted);font-size:12px;}
+
+    /* TABELA PEDIDOS */
+    .tabela{width:100%;border-collapse:collapse;font-size:13px;}
+    .tabela th{text-align:left;padding:10px 12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+    .tabela td{padding:10px 12px;border-bottom:1px solid var(--border)20;}
+    .tabela tr:hover td{background:var(--accent)08;}
+    .status-pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+    .status-pill.aprovado{background:var(--green)20;color:var(--green);}
+    .status-pill.pendente{background:var(--yellow)20;color:var(--yellow);}
+    .status-pill.aguardando{background:var(--muted)20;color:var(--muted);}
+
+    /* PRODUTOS GRID */
+    .prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
+    .prod-item{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+    .prod-item img{width:100%;height:160px;object-fit:cover;}
+    .prod-item .pi-info{padding:14px;}
+    .prod-item .pi-info h3{font-size:13px;font-weight:700;margin-bottom:4px;}
+    .prod-item .pi-info .pi-preco{font-size:18px;font-weight:900;color:var(--accent);margin-bottom:10px;}
+    .prod-item .pi-acoes{display:flex;gap:8px;}
+    .btn-editar{flex:1;background:var(--accent)20;color:var(--accent);border:none;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;}
+    .btn-excluir{background:var(--red)20;color:var(--red);border:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;}
+    .badge-ativo{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;margin-bottom:6px;}
+    .badge-ativo.sim{background:var(--green)20;color:var(--green);}
+    .badge-ativo.nao{background:var(--red)20;color:var(--red);}
+
+    /* BOTÕES */
+    .btn-primary{background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s;}
+    .btn-primary:hover{background:#2563eb;}
+    .btn-secondary{background:var(--border);color:var(--text);border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+
+    /* MODAL */
+    .modal-bg{display:none;position:fixed;inset:0;background:#00000080;z-index:999;align-items:center;justify-content:center;}
+    .modal-bg.show{display:flex;}
+    .modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;}
+    .modal h2{font-size:17px;font-weight:800;margin-bottom:20px;}
+    .field{margin-bottom:14px;}
+    .field label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
+    .field input,.field select,.field textarea{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);font-family:inherit;outline:none;transition:border-color .15s;}
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);}
+    .field textarea{resize:vertical;min-height:80px;}
+    .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .foto-preview{width:100%;height:160px;background:var(--bg);border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:8px;overflow:hidden;position:relative;}
+    .foto-preview img{width:100%;height:100%;object-fit:cover;}
+    .foto-preview .overlay{position:absolute;inset:0;background:#00000070;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;}
+    .foto-preview:hover .overlay{opacity:1;}
+    .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+
+    /* TOAST */
+    .toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;}
+    .toast.show{transform:translateY(0);opacity:1;}
+    .toast.erro{background:var(--red);}
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="logo">⚡ TechDrop Admin</div>
+  <button class="nav-item ativo" onclick="ir('dashboard')"><span class="ic">📊</span> Dashboard</button>
+  <button class="nav-item" onclick="ir('produtos')"><span class="ic">📦</span> Produtos</button>
+  <button class="nav-item" onclick="ir('pedidos')"><span class="ic">🛒</span> Pedidos</button>
+  <button class="nav-item" onclick="ir('horarios')"><span class="ic">🕐</span> Horários</button>
+  <div class="sidebar-footer">
+    <a href="/" target="_blank" class="btn-site">Ver site →</a>
+    <button class="btn-logout" onclick="logout()">Sair</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- DASHBOARD -->
+  <div class="page ativa" id="page-dashboard">
+    <div class="page-header">
+      <h1>Dashboard</h1>
+      <div class="hora-live" id="hora-live">--:--:--</div>
+    </div>
+    <div class="metricas">
+      <div class="met-card"><div class="lbl">Pedidos totais</div><div class="val" id="m-pedidos">--</div><div class="delta">desde o início</div></div>
+      <div class="met-card"><div class="lbl">Aprovados</div><div class="val" id="m-aprovados" style="color:var(--green)">--</div><div class="delta">pagamentos confirmados</div></div>
+      <div class="met-card"><div class="lbl">Receita total</div><div class="val" id="m-receita">--</div><div class="delta">após taxas estimadas</div></div>
+      <div class="met-card"><div class="lbl">Ticket médio</div><div class="val" id="m-ticket">--</div><div class="delta">por pedido aprovado</div></div>
+      <div class="met-card"><div class="lbl">Produtos ativos</div><div class="val" id="m-produtos">--</div><div class="delta">no catálogo</div></div>
+      <div class="met-card"><div class="lbl">Melhor horário</div><div class="val" id="m-hora" style="color:var(--accent)">--</div><div class="delta">para anunciar</div></div>
+    </div>
+    <div class="grid2">
+      <div class="painel">
+        <h2>🕐 Conversão por horário</h2>
+        <div id="horarios-dash"></div>
+      </div>
+      <div class="painel">
+        <h2>⚡ Ações recomendadas</h2>
+        <div id="acoes-dash"></div>
+      </div>
+    </div>
+    <div class="painel">
+      <h2>🛒 Últimos pedidos</h2>
+      <table class="tabela" id="tabela-pedidos-dash">
+        <thead><tr><th>ID</th><th>Cliente</th><th>Total</th><th>Status</th><th>Data</th></tr></thead>
+        <tbody id="tbody-pedidos-dash"><tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px;">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PRODUTOS -->
+  <div class="page" id="page-produtos">
+    <div class="page-header">
+      <h1>Produtos</h1>
+      <button class="btn-primary" onclick="abrirModalProduto()">+ Novo produto</button>
+    </div>
+    <div class="prod-grid" id="prod-grid">
+      <div style="color:var(--muted);font-size:13px;">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- PEDIDOS -->
+  <div class="page" id="page-pedidos">
+    <div class="page-header"><h1>Pedidos</h1></div>
+    <div class="painel">
+      <table class="tabela">
+        <thead><tr><th>ID</th><th>Cliente</th><th>E-mail</th><th>Total</th><th>Pagamento</th><th>Status</th><th>Data</th></tr></thead>
+        <tbody id="tbody-pedidos"><tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px;">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- HORÁRIOS -->
+  <div class="page" id="page-horarios">
+    <div class="page-header"><h1>Melhores horários</h1></div>
+    <div class="grid2">
+      <div class="painel">
+        <h2>📈 Score de conversão por hora</h2>
+        <div id="horarios-full"></div>
+      </div>
+      <div class="painel">
+        <h2>📢 Quando anunciar por plataforma</h2>
+        <div style="font-size:13px;line-height:2;">
+          <div style="padding:10px 0;border-bottom:1px solid var(--border)20;"><strong>Meta Ads</strong><br><span style="color:var(--muted)">Melhor: 18h–21h · Bom: 12h–14h · Pause: 2h–6h</span></div>
+          <div style="padding:10px 0;border-bottom:1px solid var(--border)20;"><strong>Google Shopping</strong><br><span style="color:var(--muted)">Melhor: 9h–12h e 19h–22h · Aumente bid nesses horários</span></div>
+          <div style="padding:10px 0;border-bottom:1px solid var(--border)20;"><strong>TikTok Ads</strong><br><span style="color:var(--muted)">Melhor: 20h–23h · Vídeos curtos de unboxing</span></div>
+          <div style="padding:10px 0;"><strong>WhatsApp / Stories</strong><br><span style="color:var(--muted)">Melhor: 7h–9h e 21h–23h · Evite tarde</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- MODAL PRODUTO -->
+<div class="modal-bg" id="modal-produto">
+  <div class="modal">
+    <h2 id="modal-titulo">Novo produto</h2>
+    <input type="hidden" id="prod-id"/>
+    <div class="field">
+      <label>Foto do produto</label>
+      <div class="foto-preview" id="foto-preview" onclick="document.getElementById('input-foto').click()">
+        <img id="foto-preview-img" src="" style="display:none"/>
+        <div style="text-align:center;color:var(--muted)" id="foto-placeholder">
+          <div style="font-size:32px;margin-bottom:8px;">📷</div>
+          <div style="font-size:13px;">Clique para fazer upload</div>
+          <div style="font-size:11px;margin-top:4px;">JPG, PNG ou WEBP</div>
+        </div>
+        <div class="overlay" style="color:#fff;font-size:13px;font-weight:700;">Trocar foto</div>
+      </div>
+      <input type="file" id="input-foto" accept="image/*" style="display:none" onchange="uploadFoto(this)"/>
+      <div class="field">
+        <label>Ou cole URL da foto</label>
+        <input type="text" id="prod-imagem" placeholder="https://..." oninput="previewUrl(this.value)"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>Nome do produto</label>
+      <input type="text" id="prod-titulo" placeholder="Ex: Fone Bluetooth ANC Pro"/>
+    </div>
+    <div class="field">
+      <label>Descrição</label>
+      <textarea id="prod-descricao" placeholder="Características principais do produto..."></textarea>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Preço de venda (R$)</label>
+        <input type="number" id="prod-preco" placeholder="189"/>
+      </div>
+      <div class="field">
+        <label>Preço "De" riscado (R$)</label>
+        <input type="number" id="prod-preco-de" placeholder="389"/>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Categoria</label>
+        <select id="prod-categoria">
+          <option value="fones">Fones & Áudio</option>
+          <option value="powerbanks">Powerbanks</option>
+          <option value="carregadores">Carregadores</option>
+          <option value="acessorios">Acessórios</option>
+          <option value="gamer">Setup Gamer</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Badge (opcional)</label>
+        <input type="text" id="prod-badge" placeholder="Ex: Mais vendido, Novo..."/>
+      </div>
+    </div>
+    <div class="field">
+      <label>Link AliExpress (fornecedor)</label>
+      <input type="text" id="prod-link" placeholder="https://www.aliexpress.com/item/..."/>
+    </div>
+    <div class="field">
+      <label>Ativo no site</label>
+      <select id="prod-ativo">
+        <option value="true">Sim — aparece no site</option>
+        <option value="false">Não — oculto</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-primary" onclick="salvarProduto()" id="btn-salvar">Salvar produto</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN = localStorage.getItem("admin_token") || "";
+const API = (url, opts={}) => fetch(url, {
+  ...opts,
+  credentials: "include",
+  headers: {"Content-Type":"application/json","Authorization":"Bearer "+TOKEN, ...(opts.headers||{})},
+});
+
+// ── AUTENTICAÇÃO ───────────────────────────────────────────────────────────────
+async function verificarLogin() {
+  const r = await API("/api/admin/me").catch(()=>null);
+  if (!r || !r.ok) { window.location.href = "/admin-panel/login"; return false; }
+  const d = await r.json();
+  if (!d.ok) { window.location.href = "/admin-panel/login"; return false; }
+  return true;
+}
+async function logout() {
+  await API("/api/admin/logout", {method:"POST"});
+  localStorage.removeItem("admin_token");
+  window.location.href = "/admin-panel/login";
+}
+
+// ── NAVEGAÇÃO ─────────────────────────────────────────────────────────────────
+function ir(pagina) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("ativa"));
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("ativo"));
+  document.getElementById("page-"+pagina).classList.add("ativa");
+  event.currentTarget.classList.add("ativo");
+  if (pagina === "dashboard") carregarDashboard();
+  if (pagina === "produtos")  carregarProdutos();
+  if (pagina === "pedidos")   carregarPedidos();
+  if (pagina === "horarios")  renderHorariosFull();
+}
+
+// ── RELÓGIO ───────────────────────────────────────────────────────────────────
+setInterval(()=>{
+  const d = new Date();
+  document.getElementById("hora-live").textContent =
+    `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+},1000);
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+const HORARIOS_DATA = [
+  {per:"06h–09h",sc:72,cl:"med", dica:"Setup e produtividade"},
+  {per:"09h–12h",sc:85,cl:"alto",dica:"Alta intenção de compra"},
+  {per:"12h–14h",sc:78,cl:"med", dica:"Bom para ticket baixo"},
+  {per:"14h–18h",sc:65,cl:"baixo",dica:"Reduza budget aqui"},
+  {per:"18h–21h",sc:95,cl:"alto",dica:"MELHOR horário — max budget"},
+  {per:"21h–00h",sc:91,cl:"alto",dica:"Alta conversão noturna"},
+];
+function getHoraIdx(){
+  const h=new Date().getHours();
+  if(h>=6&&h<9)return 0;if(h>=9&&h<12)return 1;if(h>=12&&h<14)return 2;
+  if(h>=14&&h<18)return 3;if(h>=18&&h<21)return 4;return 5;
+}
+function renderHorarios(elId){
+  const ativo=getHoraIdx();
+  document.getElementById(elId).innerHTML=HORARIOS_DATA.map((h,i)=>`
+    <div class="hora-bar">
+      <div class="topo">
+        <span class="per">${h.per}${i===ativo?'<span class="agora-tag">← AGORA</span>':''}</span>
+        <span class="sc">${h.sc}/100</span>
+      </div>
+      <div class="bgg"><div class="bfill ${h.cl}" style="width:${h.sc}%"></div></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px;">${h.dica}</div>
+    </div>`).join("");
+}
+function renderHorariosFull(){renderHorarios("horarios-full");}
+
+async function carregarDashboard(){
+  renderHorarios("horarios-dash");
+  // Métricas
+  try{
+    const r=await API("/api/admin/metricas");
+    const d=await r.json();
+    if(d.ok){
+      document.getElementById("m-pedidos").textContent=d.total_pedidos;
+      document.getElementById("m-aprovados").textContent=d.pedidos_aprovados;
+      document.getElementById("m-receita").textContent="R$ "+d.receita_total.toFixed(2).replace(".",",");
+      document.getElementById("m-ticket").textContent="R$ "+d.ticket_medio.toFixed(2).replace(".",",");
+      document.getElementById("m-produtos").textContent=d.produtos_ativos;
+      document.getElementById("m-hora").textContent=d.melhor_hora+"h";
+    }
+  }catch(e){
+    document.getElementById("m-pedidos").textContent="0";
+    document.getElementById("m-aprovados").textContent="0";
+    document.getElementById("m-receita").textContent="R$ 0,00";
+    document.getElementById("m-ticket").textContent="R$ 0,00";
+    document.getElementById("m-produtos").textContent="--";
+    document.getElementById("m-hora").textContent="18h";
+  }
+  // Ações recomendadas
+  const hora=HORARIOS_DATA[getHoraIdx()];
+  document.getElementById("acoes-dash").innerHTML=`
+    <div class="alerta verde"><span class="ic2">⚡</span><div class="tx"><strong>Horário ${hora.sc>=80?"ótimo":"médio"} agora</strong><span>${hora.dica} — score ${hora.sc}/100</span></div></div>
+    <div class="alerta ${hora.sc>=80?"verde":"amarelo"}"><span class="ic2">📢</span><div class="tx"><strong>${hora.sc>=80?"Aumente o budget de anúncios":"Mantenha budget moderado"}</strong><span>Meta Ads e Google Shopping respondem melhor ${hora.sc>=80?"agora":"das 18h–21h"}</span></div></div>
+    <div class="alerta verde"><span class="ic2">📦</span><div class="tx"><strong>Dropshipping ativo</strong><span>Pedidos aprovados vão para fila de fulfillment automaticamente</span></div></div>`;
+  // Pedidos recentes
+  try{
+    const r=await API("/api/admin/pedidos");
+    const d=await r.json();
+    const pedidos=(d.pedidos||[]).slice(0,5);
+    document.getElementById("tbody-pedidos-dash").innerHTML=pedidos.length?
+      pedidos.map(p=>`<tr>
+        <td style="font-weight:700;color:var(--accent)">#${p.id}</td>
+        <td>${p.cliente?.nome||"—"}</td>
+        <td>R$ ${(p.total||0).toFixed(2).replace(".",",")}</td>
+        <td><span class="status-pill ${p.status==="approved"?"aprovado":p.status?.includes("aguard")?"aguardando":"pendente"}">${p.status||"—"}</span></td>
+        <td style="color:var(--muted)">${p.criado_em?.slice(0,16).replace("T"," ")||"—"}</td>
+      </tr>`).join(""):
+      '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px;">Nenhum pedido ainda</td></tr>';
+  }catch(e){}
+}
+
+// ── PRODUTOS ──────────────────────────────────────────────────────────────────
+async function carregarProdutos(){
+  const r=await API("/api/admin/produtos");
+  const d=await r.json();
+  const grid=document.getElementById("prod-grid");
+  if(!d.ok||!d.produtos?.length){grid.innerHTML='<div style="color:var(--muted);font-size:13px;">Nenhum produto.</div>';return;}
+  grid.innerHTML=d.produtos.map(p=>`
+    <div class="prod-item">
+      <img src="${p.imagem||'https://via.placeholder.com/400x160?text=Sem+foto'}" alt="${p.titulo}" onerror="this.src='https://via.placeholder.com/400x160?text=Sem+foto'"/>
+      <div class="pi-info">
+        <span class="badge-ativo ${p.ativo!==false?"sim":"nao"}">${p.ativo!==false?"● Ativo":"○ Oculto"}</span>
+        <h3>${p.titulo}</h3>
+        <div class="pi-preco">R$ ${p.preco_venda}</div>
+        <div class="pi-acoes">
+          <button class="btn-editar" onclick='editarProduto(${JSON.stringify(p).replace(/'/g,"&#39;")})'>✏️ Editar</button>
+          <button class="btn-excluir" onclick="excluirProduto('${p.id}')">🗑️</button>
+        </div>
+      </div>
+    </div>`).join("");
+}
+
+function abrirModalProduto(){
+  document.getElementById("prod-id").value="";
+  document.getElementById("modal-titulo").textContent="Novo produto";
+  document.getElementById("prod-titulo").value="";
+  document.getElementById("prod-descricao").value="";
+  document.getElementById("prod-imagem").value="";
+  document.getElementById("prod-preco").value="";
+  document.getElementById("prod-preco-de").value="";
+  document.getElementById("prod-badge").value="";
+  document.getElementById("prod-link").value="";
+  document.getElementById("prod-ativo").value="true";
+  document.getElementById("foto-preview-img").style.display="none";
+  document.getElementById("foto-placeholder").style.display="block";
+  document.getElementById("modal-produto").classList.add("show");
+}
+
+function editarProduto(p){
+  document.getElementById("prod-id").value=p.id;
+  document.getElementById("modal-titulo").textContent="Editar produto";
+  document.getElementById("prod-titulo").value=p.titulo||"";
+  document.getElementById("prod-descricao").value=p.descricao||"";
+  document.getElementById("prod-imagem").value=p.imagem||"";
+  document.getElementById("prod-preco").value=p.preco_venda||"";
+  document.getElementById("prod-preco-de").value=p.preco_de||"";
+  document.getElementById("prod-badge").value=p.badge||"";
+  document.getElementById("prod-link").value=p.link_aliexpress||"";
+  document.getElementById("prod-ativo").value=String(p.ativo!==false);
+  previewUrl(p.imagem||"");
+  document.getElementById("modal-produto").classList.add("show");
+}
+
+function previewUrl(url){
+  if(!url)return;
+  const img=document.getElementById("foto-preview-img");
+  img.src=url; img.style.display="block";
+  document.getElementById("foto-placeholder").style.display="none";
+}
+
+async function uploadFoto(input){
+  if(!input.files[0])return;
+  const form=new FormData();
+  form.append("foto",input.files[0]);
+  const r=await fetch("/api/admin/produtos/upload-foto",{
+    method:"POST",credentials:"include",
+    headers:{"Authorization":"Bearer "+TOKEN},
+    body:form,
+  });
+  const d=await r.json();
+  if(d.ok){
+    document.getElementById("prod-imagem").value=d.url;
+    previewUrl(d.url);
+    toast("Foto enviada!");
+  } else { toast(d.erro||"Erro no upload","erro"); }
+}
+
+async function salvarProduto(){
+  const id=document.getElementById("prod-id").value;
+  const dados={
+    titulo:    document.getElementById("prod-titulo").value.trim(),
+    descricao: document.getElementById("prod-descricao").value.trim(),
+    imagem:    document.getElementById("prod-imagem").value.trim(),
+    preco_venda:  parseFloat(document.getElementById("prod-preco").value)||0,
+    preco_de:     parseFloat(document.getElementById("prod-preco-de").value)||0,
+    badge:        document.getElementById("prod-badge").value.trim(),
+    link_aliexpress: document.getElementById("prod-link").value.trim(),
+    categoria:    document.getElementById("prod-categoria").value,
+    ativo:        document.getElementById("prod-ativo").value==="true",
+  };
+  if(!dados.titulo){toast("Nome do produto é obrigatório","erro");return;}
+  if(!dados.preco_venda){toast("Preço de venda é obrigatório","erro");return;}
+  const btn=document.getElementById("btn-salvar");
+  btn.disabled=true; btn.textContent="Salvando...";
+  try{
+    const url=id?`/api/admin/produtos/${id}`:"/api/admin/produtos";
+    const method=id?"PUT":"POST";
+    const r=await API(url,{method,body:JSON.stringify(dados)});
+    const d=await r.json();
+    if(d.ok){
+      fecharModal();
+      carregarProdutos();
+      toast(id?"Produto atualizado!":"Produto criado!");
+    } else { toast(d.erro||"Erro ao salvar","erro"); }
+  }finally{ btn.disabled=false; btn.textContent="Salvar produto"; }
+}
+
+async function excluirProduto(id){
+  if(!confirm("Excluir este produto?"))return;
+  const r=await API(`/api/admin/produtos/${id}`,{method:"DELETE"});
+  const d=await r.json();
+  if(d.ok){carregarProdutos();toast("Produto excluído!");}
+  else toast("Erro ao excluir","erro");
+}
+
+function fecharModal(){document.getElementById("modal-produto").classList.remove("show");}
+
+// ── PEDIDOS ───────────────────────────────────────────────────────────────────
+async function carregarPedidos(){
+  try{
+    const r=await API("/api/admin/pedidos");
+    const d=await r.json();
+    const pedidos=d.pedidos||[];
+    document.getElementById("tbody-pedidos").innerHTML=pedidos.length?
+      pedidos.map(p=>`<tr>
+        <td style="font-weight:700;color:var(--accent)">#${p.id}</td>
+        <td>${p.cliente?.nome||"—"}</td>
+        <td style="color:var(--muted)">${p.cliente?.email||"—"}</td>
+        <td>R$ ${(p.total||0).toFixed(2).replace(".",",")}</td>
+        <td style="color:var(--muted)">${p.metodo_pgto||"—"}</td>
+        <td><span class="status-pill ${p.status==="approved"?"aprovado":p.status?.includes("aguard")?"aguardando":"pendente"}">${p.status||"—"}</span></td>
+        <td style="color:var(--muted)">${p.criado_em?.slice(0,16).replace("T"," ")||"—"}</td>
+      </tr>`).join(""):
+      '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px;">Nenhum pedido ainda</td></tr>';
+  }catch(e){}
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function toast(msg,tipo=""){
+  const el=document.getElementById("toast");
+  el.textContent=msg;
+  el.className="toast show"+(tipo?" "+tipo:"");
+  setTimeout(()=>el.classList.remove("show"),3000);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+(async()=>{
+  if(!await verificarLogin())return;
+  carregarDashboard();
+})();
+</script>
+</body>
+</html>

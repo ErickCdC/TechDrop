@@ -9,15 +9,20 @@ import hmac
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, make_response
 from flask_cors import CORS
 import httpx
 from dotenv import load_dotenv
+from servidor.auth import login_required, verificar_credenciais
+from servidor import produtos_db
 
 load_dotenv()
 
 app = Flask(__name__, static_folder="../site", static_url_path="")
-CORS(app)
+CORS(app, supports_credentials=True)
+
+UPLOADS_DIR = Path(__file__).parent / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
 
 MP_ACCESS_TOKEN   = os.getenv("MP_ACCESS_TOKEN", "")
 MP_WEBHOOK_SECRET = os.getenv("MP_WEBHOOK_SECRET", "")
@@ -251,9 +256,160 @@ def _carregar_pedido(pedido_id: str) -> dict | None:
         return json.load(f)
 
 
+# ── ADMIN AUTH ────────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/login", methods=["POST"])
+def admin_login():
+    data = request.json or {}
+    token = verificar_credenciais(data.get("user",""), data.get("senha",""))
+    if not token:
+        return jsonify({"ok": False, "erro": "Usuário ou senha incorretos"}), 401
+    resp = make_response(jsonify({"ok": True, "token": token}))
+    resp.set_cookie("admin_token", token, httponly=True, samesite="Lax", max_age=86400)
+    return resp
+
+@app.route("/api/admin/logout", methods=["POST"])
+def admin_logout():
+    resp = make_response(jsonify({"ok": True}))
+    resp.delete_cookie("admin_token")
+    return resp
+
+@app.route("/api/admin/me", methods=["GET"])
+@login_required
+def admin_me():
+    return jsonify({"ok": True, "user": os.getenv("ADMIN_USER", "admin")})
+
+
+# ── ADMIN PRODUTOS ─────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/produtos", methods=["GET"])
+@login_required
+def admin_listar_produtos():
+    return jsonify({"ok": True, "produtos": produtos_db.listar()})
+
+@app.route("/api/admin/produtos", methods=["POST"])
+@login_required
+def admin_criar_produto():
+    dados = request.json or {}
+    produto = produtos_db.criar(dados)
+    return jsonify({"ok": True, "produto": produto}), 201
+
+@app.route("/api/admin/produtos/<pid>", methods=["GET"])
+@login_required
+def admin_obter_produto(pid):
+    p = produtos_db.obter(pid)
+    if not p:
+        return jsonify({"ok": False, "erro": "Não encontrado"}), 404
+    return jsonify({"ok": True, "produto": p})
+
+@app.route("/api/admin/produtos/<pid>", methods=["PUT"])
+@login_required
+def admin_atualizar_produto(pid):
+    dados = request.json or {}
+    p = produtos_db.atualizar(pid, dados)
+    if not p:
+        return jsonify({"ok": False, "erro": "Não encontrado"}), 404
+    return jsonify({"ok": True, "produto": p})
+
+@app.route("/api/admin/produtos/<pid>", methods=["DELETE"])
+@login_required
+def admin_deletar_produto(pid):
+    ok = produtos_db.deletar(pid)
+    return jsonify({"ok": ok})
+
+@app.route("/api/admin/produtos/upload-foto", methods=["POST"])
+@login_required
+def admin_upload_foto():
+    if "foto" not in request.files:
+        return jsonify({"ok": False, "erro": "Nenhuma foto enviada"}), 400
+    foto = request.files["foto"]
+    ext  = foto.filename.rsplit(".", 1)[-1].lower()
+    if ext not in ("jpg", "jpeg", "png", "webp"):
+        return jsonify({"ok": False, "erro": "Formato inválido. Use JPG, PNG ou WEBP"}), 400
+    nome = f"{uuid.uuid4().hex[:12]}.{ext}"
+    foto.save(UPLOADS_DIR / nome)
+    url = f"/uploads/{nome}"
+    return jsonify({"ok": True, "url": url})
+
+@app.route("/uploads/<path:nome>")
+def servir_upload(nome):
+    return send_from_directory(UPLOADS_DIR, nome)
+
+
+# ── ADMIN PEDIDOS ──────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/pedidos", methods=["GET"])
+@login_required
+def admin_listar_pedidos():
+    pedidos = []
+    for arq in sorted(PEDIDOS_DIR.glob("*.json"), reverse=True)[:50]:
+        if arq.name == "fila_fulfillment.json":
+            continue
+        with open(arq, encoding="utf-8") as f:
+            pedidos.append(json.load(f))
+    return jsonify({"ok": True, "pedidos": pedidos})
+
+
+# ── ADMIN MÉTRICAS ─────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/metricas", methods=["GET"])
+@login_required
+def admin_metricas():
+    pedidos = []
+    for arq in PEDIDOS_DIR.glob("*.json"):
+        if arq.name == "fila_fulfillment.json":
+            continue
+        with open(arq, encoding="utf-8") as f:
+            pedidos.append(json.load(f))
+
+    aprovados   = [p for p in pedidos if p.get("status") == "approved"]
+    receita     = sum(p.get("total", 0) for p in aprovados)
+    ticket_med  = receita / len(aprovados) if aprovados else 0
+
+    # Vendas por hora
+    vendas_hora = {str(h).zfill(2): 0 for h in range(24)}
+    for p in aprovados:
+        hora = p.get("pago_em", "")[:13].split("T")[-1][:2]
+        if hora in vendas_hora:
+            vendas_hora[hora] += 1
+
+    melhor_hora = max(vendas_hora, key=vendas_hora.get) if any(vendas_hora.values()) else "18"
+
+    return jsonify({
+        "ok": True,
+        "total_pedidos":   len(pedidos),
+        "pedidos_aprovados": len(aprovados),
+        "receita_total":   round(receita, 2),
+        "ticket_medio":    round(ticket_med, 2),
+        "melhor_hora":     melhor_hora,
+        "vendas_por_hora": vendas_hora,
+        "produtos_ativos": len([p for p in produtos_db.listar() if p.get("ativo")]),
+    })
+
+
+# ── PRODUTOS PÚBLICO ───────────────────────────────────────────────────────────
+
+@app.route("/api/produtos", methods=["GET"])
+def listar_produtos():
+    ativos = [p for p in produtos_db.listar() if p.get("ativo", True)]
+    return jsonify({"ok": True, "produtos": ativos})
+
+
+# ── ADMIN PÁGINAS ──────────────────────────────────────────────────────────────
+
+@app.route("/admin-panel/")
+@app.route("/admin-panel")
+def admin_panel():
+    return send_from_directory(app.static_folder, "admin-panel.html")
+
+@app.route("/admin-panel/login")
+def admin_login_page():
+    return send_from_directory(app.static_folder, "admin-login.html")
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     print(f"\nTechDrop Brasil - servidor rodando em http://localhost:{port}")
     print(f"   Site:  http://localhost:{port}/")
-    print(f"   Admin: http://localhost:{port}/admin/\n")
+    print(f"   Admin: http://localhost:{port}/admin-panel/\n")
     app.run(host="0.0.0.0", port=port, debug=False)
