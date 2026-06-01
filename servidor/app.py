@@ -17,10 +17,22 @@ try:
     from servidor.auth import login_required, verificar_credenciais
     from servidor import produtos_db
     from servidor.importador import importar_produto
+    from servidor.emails import (confirmacao_pedido, notificar_rastreio,
+                                  notificar_entregue, notificar_disputa_aberta)
+    from servidor.rastreio import registrar_rastreio, consultar_status, verificar_todos_pedidos
+    from servidor.disputas import (abrir_disputa, listar_disputas,
+                                    atualizar_disputa, aprovar_reembolso,
+                                    verificar_reembolsos_automaticos)
 except ImportError:
     from auth import login_required, verificar_credenciais
     import produtos_db
     from importador import importar_produto
+    from emails import (confirmacao_pedido, notificar_rastreio,
+                        notificar_entregue, notificar_disputa_aberta)
+    from rastreio import registrar_rastreio, consultar_status, verificar_todos_pedidos
+    from disputas import (abrir_disputa, listar_disputas,
+                          atualizar_disputa, aprovar_reembolso,
+                          verificar_reembolsos_automaticos)
 
 load_dotenv()
 
@@ -182,6 +194,11 @@ def webhook_mp():
 
     if status == "approved":
         _processar_pedido_aprovado(pedido)
+        # E-mail automático de confirmação
+        try:
+            confirmacao_pedido(pedido)
+        except Exception as e:
+            print(f"[EMAIL] Erro ao enviar confirmação: {e}")
 
     return jsonify({"ok": True}), 200
 
@@ -377,15 +394,155 @@ def admin_reembolsar(pedido_id):
 @app.route("/api/admin/pedidos/<pedido_id>/fulfillment", methods=["POST"])
 @login_required
 def admin_marcar_fulfillment(pedido_id):
-    """Marca pedido como comprado no AliExpress."""
     pedido = _carregar_pedido(pedido_id.upper())
     if not pedido:
         return jsonify({"ok": False, "erro": "Pedido não encontrado"}), 404
-    pedido["status"] = "comprado_aliexpress"
+    rastreio = (request.json or {}).get("rastreio", pedido.get("rastreio", ""))
+    pedido["status"]      = "comprado_aliexpress"
     pedido["comprado_em"] = datetime.now().isoformat()
-    pedido["rastreio"] = (request.json or {}).get("rastreio", "")
+    pedido["rastreio"]    = rastreio
     _salvar_pedido(pedido)
+    # Registra rastreio no 17track e notifica cliente automaticamente
+    if rastreio:
+        try:
+            registrar_rastreio(rastreio)
+            notificar_rastreio(pedido, rastreio)
+        except Exception as e:
+            print(f"[RASTREIO] {e}")
     return jsonify({"ok": True})
+
+
+# ── RASTREIO ───────────────────────────────────────────────────────────────────
+
+@app.route("/api/rastreio/<codigo>", methods=["GET"])
+def rastreio_publico(codigo):
+    """Rota pública para o cliente consultar o rastreio."""
+    info = consultar_status(codigo)
+    return jsonify({"ok": True, "rastreio": info})
+
+@app.route("/api/admin/rastreio/verificar-todos", methods=["POST"])
+@login_required
+def admin_verificar_rastreios():
+    """Verifica todos os pedidos em rastreio e atualiza status."""
+    atualizados = verificar_todos_pedidos(str(PEDIDOS_DIR))
+    for item in atualizados:
+        pedido = item["pedido"]
+        if item["evento"] == "entregue":
+            try: notificar_entregue(pedido)
+            except: pass
+        _salvar_pedido(pedido)
+    return jsonify({"ok": True, "atualizados": len(atualizados)})
+
+
+# ── DISPUTAS ───────────────────────────────────────────────────────────────────
+
+@app.route("/api/disputa", methods=["POST"])
+def abrir_disputa_cliente():
+    """Cliente abre disputa publicamente (sem login)."""
+    data = request.json or {}
+    pedido_id = data.get("pedido_id", "").upper()
+    motivo    = data.get("motivo", "")
+    descricao = data.get("descricao", "")
+    if not pedido_id or not motivo:
+        return jsonify({"ok": False, "erro": "pedido_id e motivo são obrigatórios"}), 400
+    pedido = _carregar_pedido(pedido_id)
+    if not pedido:
+        return jsonify({"ok": False, "erro": "Pedido não encontrado"}), 404
+    disputa = abrir_disputa(pedido_id, pedido, motivo, descricao)
+    pedido["disputa_aberta"] = disputa["id"]
+    pedido["status"] = "disputa"
+    _salvar_pedido(pedido)
+    try: notificar_disputa_aberta(pedido, disputa["motivo_label"])
+    except: pass
+    return jsonify({"ok": True, "disputa_id": disputa["id"]})
+
+@app.route("/api/admin/disputas", methods=["GET"])
+@login_required
+def admin_listar_disputas():
+    status = request.args.get("status")
+    return jsonify({"ok": True, "disputas": listar_disputas(status)})
+
+@app.route("/api/admin/disputas/<disputa_id>/aprovar-reembolso", methods=["POST"])
+@login_required
+def admin_aprovar_reembolso(disputa_id):
+    """Admin aprova reembolso após AliExpress confirmar."""
+    data  = request.json or {}
+    valor = data.get("valor")
+    disp  = aprovar_reembolso(disputa_id, valor)
+    if not disp:
+        return jsonify({"ok": False, "erro": "Disputa não encontrada"}), 404
+    # Agora processa o reembolso no MP
+    pedido = _carregar_pedido(disp["pedido_id"])
+    if pedido and pedido.get("payment_id"):
+        try:
+            r = httpx.post(
+                f"https://api.mercadopago.com/v1/payments/{pedido['payment_id']}/refunds",
+                headers={**MP_HEADERS, "X-Idempotency-Key": f"refund-{disputa_id}"},
+                json={},
+                timeout=15,
+            )
+            if r.status_code in (200, 201):
+                pedido["status"] = "reembolsado"
+                _salvar_pedido(pedido)
+        except Exception as e:
+            print(f"[REEMBOLSO] {e}")
+    return jsonify({"ok": True, "disputa": disp})
+
+@app.route("/api/admin/disputas/<disputa_id>/atualizar", methods=["POST"])
+@login_required
+def admin_atualizar_disputa(disputa_id):
+    data = request.json or {}
+    disp = atualizar_disputa(disputa_id, data.get("acao",""), data.get("detalhe",""), data.get("status"))
+    if not disp:
+        return jsonify({"ok": False, "erro": "Disputa não encontrada"}), 404
+    return jsonify({"ok": True, "disputa": disp})
+
+
+# ── AGENDADOR AUTOMÁTICO ───────────────────────────────────────────────────────
+
+import threading, time as _time
+
+def _job_rastreio():
+    """Verifica rastreios a cada 6h automaticamente."""
+    while True:
+        _time.sleep(6 * 3600)
+        try:
+            print("[AGENDADOR] Verificando rastreios...")
+            atualizados = verificar_todos_pedidos(str(PEDIDOS_DIR))
+            for item in atualizados:
+                pedido = item["pedido"]
+                if item["evento"] == "entregue":
+                    notificar_entregue(pedido)
+                _salvar_pedido(pedido)
+            print(f"[AGENDADOR] {len(atualizados)} rastreio(s) atualizados")
+        except Exception as e:
+            print(f"[AGENDADOR] Erro: {e}")
+
+def _job_reembolsos():
+    """Verifica reembolsos automáticos por prazo a cada 24h."""
+    while True:
+        _time.sleep(24 * 3600)
+        try:
+            print("[AGENDADOR] Verificando reembolsos automáticos...")
+            candidatos = verificar_reembolsos_automaticos(str(PEDIDOS_DIR))
+            for c in candidatos:
+                pedido = c["pedido"]
+                disputa = abrir_disputa(
+                    pedido["id"], pedido,
+                    "nao_recebido",
+                    f"Reembolso automático — pedido não entregue após {c['dias']} dias"
+                )
+                pedido["disputa_aberta"] = disputa["id"]
+                pedido["status"] = "disputa"
+                _salvar_pedido(pedido)
+                notificar_disputa_aberta(pedido, "Prazo de entrega excedido")
+                print(f"[AGENDADOR] Disputa automática aberta para pedido #{pedido['id']}")
+        except Exception as e:
+            print(f"[AGENDADOR] Erro reembolsos: {e}")
+
+# Inicia threads em background ao subir o servidor
+threading.Thread(target=_job_rastreio,    daemon=True).start()
+threading.Thread(target=_job_reembolsos,  daemon=True).start()
 
 
 @app.route("/api/admin/pedidos", methods=["GET"])
