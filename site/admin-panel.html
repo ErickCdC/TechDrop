@@ -128,6 +128,7 @@
   <button class="nav-item" onclick="ir('produtos')"><span class="ic">📦</span> Produtos</button>
   <button class="nav-item" onclick="ir('pedidos')"><span class="ic">🛒</span> Pedidos</button>
   <button class="nav-item" onclick="ir('avaliacoes')"><span class="ic">⭐</span> Avaliações</button>
+  <button class="nav-item" onclick="ir('personalizar')"><span class="ic">🎨</span> Personalizar site</button>
   <button class="nav-item" onclick="ir('horarios')"><span class="ic">🕐</span> Horários</button>
   <div class="sidebar-footer">
     <a href="/" target="_blank" class="btn-site">Ver site →</a>
@@ -220,6 +221,18 @@
   <div class="page" id="page-avaliacoes">
     <div class="page-header"><h1>Avaliações dos clientes</h1></div>
     <div id="avaliacoes-lista" style="display:grid;gap:12px;"></div>
+  </div>
+
+  <!-- PERSONALIZAR SITE -->
+  <div class="page" id="page-personalizar">
+    <div class="page-header">
+      <h1>Personalizar site</h1>
+      <div style="display:flex;gap:8px;">
+        <a href="/" target="_blank" class="btn-primary" style="background:var(--border);color:var(--text);text-decoration:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;">Ver site</a>
+        <button class="btn-primary" id="btn-salvar-config" onclick="salvarConfig()">💾 Salvar alterações</button>
+      </div>
+    </div>
+    <div id="cfg-blocos" style="display:grid;gap:18px;max-width:760px;"></div>
   </div>
 
   <!-- MODAL RASTREIO -->
@@ -447,7 +460,93 @@ function ir(pagina) {
   if (pagina === "produtos")  carregarProdutos();
   if (pagina === "pedidos")   carregarPedidos();
   if (pagina === "avaliacoes") carregarAvaliacoesAdmin();
+  if (pagina === "personalizar") carregarConfigAdmin();
   if (pagina === "horarios")  renderHorariosFull();
+}
+
+// ── PERSONALIZAR SITE ─────────────────────────────────────────────────────────
+const CFG_CAMPOS = [
+  {secao:"Marca", campos:[
+    {k:"loja_nome",   label:"Nome da loja", tipo:"text"},
+    {k:"cor_principal", label:"Cor principal", tipo:"color"},
+    {k:"cor_destaque",  label:"Cor de destaque (hover)", tipo:"color"},
+    {k:"whatsapp",    label:"WhatsApp (só números, com DDD e 55)", tipo:"text", ph:"5511999999999"},
+  ]},
+  {secao:"Barra superior", campos:[
+    {k:"topbar_ativa", label:"Mostrar barra no topo?", tipo:"bool"},
+    {k:"topbar_texto", label:"Texto da barra", tipo:"text"},
+  ]},
+  {secao:"Banner principal (Hero)", campos:[
+    {k:"hero_titulo",    label:"Título", tipo:"text"},
+    {k:"hero_subtitulo", label:"Subtítulo", tipo:"textarea"},
+    {k:"hero_cta",       label:"Texto do botão", tipo:"text"},
+    {k:"hero_imagem",    label:"URL da imagem", tipo:"text"},
+  ]},
+  {secao:"Selos de confiança", campos:[
+    {k:"selo_1", label:"Selo 1", tipo:"text"},
+    {k:"selo_2", label:"Selo 2", tipo:"text"},
+    {k:"selo_3", label:"Selo 3", tipo:"text"},
+    {k:"selo_4", label:"Selo 4", tipo:"text"},
+  ]},
+  {secao:"Títulos das seções", campos:[
+    {k:"titulo_destaque",   label:"Título do destaque", tipo:"text"},
+    {k:"titulo_produtos",   label:"Título dos produtos", tipo:"text"},
+    {k:"titulo_avaliacoes", label:"Título das avaliações", tipo:"text"},
+  ]},
+  {secao:"Rodapé", campos:[
+    {k:"rodape_sobre", label:"Texto sobre a loja", tipo:"textarea"},
+    {k:"rodape_email", label:"E-mail de contato", tipo:"text"},
+    {k:"rodape_cnpj",  label:"CNPJ (opcional)", tipo:"text"},
+  ]},
+];
+
+let _config = {};
+async function carregarConfigAdmin(){
+  const r = await API("/api/admin/config");
+  const d = await r.json();
+  _config = d.config || {};
+  const cont = document.getElementById("cfg-blocos");
+  cont.innerHTML = CFG_CAMPOS.map(bloco => `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
+      <h2 style="font-size:14px;font-weight:800;margin-bottom:16px;color:var(--accent);">${bloco.secao}</h2>
+      ${bloco.campos.map(c => {
+        const val = _config[c.k] ?? "";
+        if (c.tipo === "bool") return `
+          <div class="field"><label>${c.label}</label>
+            <select data-k="${c.k}">
+              <option value="true" ${val!==false?'selected':''}>Sim</option>
+              <option value="false" ${val===false?'selected':''}>Não</option>
+            </select></div>`;
+        if (c.tipo === "color") return `
+          <div class="field"><label>${c.label}</label>
+            <input type="color" data-k="${c.k}" value="${val||'#2563eb'}" style="height:42px;padding:4px;cursor:pointer;"/></div>`;
+        if (c.tipo === "textarea") return `
+          <div class="field"><label>${c.label}</label>
+            <textarea data-k="${c.k}" rows="2">${val}</textarea></div>`;
+        return `
+          <div class="field"><label>${c.label}</label>
+            <input type="text" data-k="${c.k}" value="${String(val).replace(/"/g,'&quot;')}" placeholder="${c.ph||''}"/></div>`;
+      }).join("")}
+    </div>`).join("");
+}
+
+async function salvarConfig(){
+  const btn = document.getElementById("btn-salvar-config");
+  btn.disabled = true; btn.textContent = "Salvando...";
+  const dados = {};
+  document.querySelectorAll("#cfg-blocos [data-k]").forEach(el => {
+    let v = el.value;
+    if (v === "true") v = true; else if (v === "false") v = false;
+    dados[el.dataset.k] = v;
+  });
+  try {
+    const r = await API("/api/admin/config", {method:"POST", body:JSON.stringify(dados)});
+    const d = await r.json();
+    if (d.ok) toast("Site atualizado! Recarregue a loja para ver.");
+    else toast("Erro ao salvar", "erro");
+  } finally {
+    btn.disabled = false; btn.textContent = "💾 Salvar alterações";
+  }
 }
 
 // ── AVALIAÇÕES (ADMIN) ────────────────────────────────────────────────────────

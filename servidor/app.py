@@ -29,6 +29,7 @@ try:
     from servidor import cupons
     from servidor import avaliacoes
     from servidor.emails import pedir_avaliacao
+    from servidor import config_site
 except ImportError:
     import db
     from auth import login_required, verificar_credenciais
@@ -45,6 +46,7 @@ except ImportError:
     import cupons
     import avaliacoes
     from emails import pedir_avaliacao
+    import config_site
 
 load_dotenv()
 
@@ -829,6 +831,53 @@ def admin_metricas():
 
 # ── PRODUTOS PÚBLICO ───────────────────────────────────────────────────────────
 
+@app.route("/api/config", methods=["GET"])
+def get_config():
+    """Configurações públicas do site (lidas pelo front)."""
+    return jsonify({"ok": True, "config": config_site.obter()})
+
+@app.route("/api/admin/config", methods=["GET"])
+@login_required
+def admin_get_config():
+    return jsonify({"ok": True, "config": config_site.obter()})
+
+@app.route("/api/admin/config", methods=["POST"])
+@login_required
+def admin_salvar_config():
+    novos = request.json or {}
+    return jsonify({"ok": True, "config": config_site.salvar(novos)})
+
+
+@app.route("/api/produto/<pid>", methods=["GET"])
+def get_produto_publico(pid):
+    """Produto individual + avaliações para a página de detalhe."""
+    p = produtos_db.obter(pid)
+    if not p or not p.get("ativo", True):
+        return jsonify({"ok": False, "erro": "Produto não encontrado"}), 404
+    resumo = avaliacoes.media_produto(pid)
+    if resumo["total"] > 0:
+        p["avaliacao"] = resumo["media"]
+    return jsonify({
+        "ok": True,
+        "produto": p,
+        "avaliacoes": avaliacoes.listar_por_produto(pid),
+        "resumo": resumo,
+    })
+
+@app.route("/api/avaliacao-publica", methods=["POST"])
+def avaliacao_publica():
+    """Avaliação enviada pela página do produto (entra pendente de moderação)."""
+    d = request.json or {}
+    produto_id = d.get("produto_id", "")
+    if not produto_id:
+        return jsonify({"ok": False, "erro": "produto inválido"}), 400
+    d["pedido_id"] = ""
+    av = avaliacoes.criar(produto_id, d)
+    # Marca como pendente (admin aprova)
+    avaliacoes.definir_aprovacao(av["id"], False)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/produtos", methods=["GET"])
 def listar_produtos():
     ativos = [p for p in produtos_db.listar() if p.get("ativo", True)]
@@ -862,6 +911,11 @@ def minha_conta_page():
 @app.route("/avaliar.html")
 def avaliar_page():
     return send_from_directory(app.static_folder, "avaliar.html")
+
+@app.route("/produto")
+@app.route("/produto.html")
+def produto_page():
+    return send_from_directory(app.static_folder, "produto.html")
 
 
 if __name__ == "__main__":
