@@ -406,6 +406,18 @@ def admin_aprovar_avaliacao(av_id):
 def admin_deletar_avaliacao(av_id):
     return jsonify({"ok": avaliacoes.deletar(av_id)})
 
+@app.route("/api/admin/avaliacoes/importar", methods=["POST"])
+@login_required
+def admin_importar_avaliacoes():
+    """Importa avaliações reais do AliExpress (vindas da extensão)."""
+    d = request.json or {}
+    produto_id = d.get("produto_id", "")
+    reviews    = d.get("reviews", [])
+    if not produto_id or not reviews:
+        return jsonify({"ok": False, "erro": "produto_id e reviews obrigatórios"}), 400
+    importadas = avaliacoes.importar_aliexpress(produto_id, reviews)
+    return jsonify({"ok": True, "importadas": importadas})
+
 
 # ── CONTA DO COMPRADOR ─────────────────────────────────────────────────────────
 

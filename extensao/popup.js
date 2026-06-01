@@ -44,15 +44,15 @@ async function capturar() {
   }
 }
 
-// ── FUNÇÃO INJETADA NA PÁGINA ────────────────────────────────────────────────
-// Esta função roda DENTRO da página do AliExpress
-function extrairDadosPagina() {
+// ── FUNÇÃO INJETADA NA PÁGINA (async p/ buscar reviews) ──────────────────────
+async function extrairDadosPagina() {
   const resultado = {
     url:      window.location.href,
     pid:      (window.location.href.match(/\/item\/(\d+)/) || [])[1] || "",
     titulo:   "",
     imagens:  [],
     video:    null,
+    reviews:  [],
     preco_brl: 0,
     preco_original_brl: 0,
     variantes: [],
@@ -199,12 +199,53 @@ function extrairDadosPagina() {
   const vendasEl = document.querySelector("[class*='trade--trade'], [class*='sold-count'], [class*='order-num']");
   if (vendasEl) resultado.vendas = vendasEl.textContent.trim();
 
+  // ── REVIEWS REAIS (API de feedback do AliExpress) ──────────────────────────
+  if (resultado.pid) {
+    try {
+      // Busca 2 páginas: primeiro as com foto, depois gerais
+      const consultas = [
+        `https://feedback.aliexpress.com/pc/searchEvaluation.do?productId=${resultado.pid}&lang=pt_BR&country=BR&page=1&pageSize=20&filter=image&sort=complex_default`,
+        `https://feedback.aliexpress.com/pc/searchEvaluation.do?productId=${resultado.pid}&lang=pt_BR&country=BR&page=1&pageSize=20&filter=all&sort=complex_default`,
+      ];
+      const vistos = new Set();
+      for (const url of consultas) {
+        try {
+          const resp = await fetch(url, { credentials: "include" });
+          const json = await resp.json();
+          const lista = (json.data && json.data.evaViewList) || json.evaViewList || [];
+          for (const ev of lista) {
+            const texto = (ev.buyerTranslationFeedback || ev.buyerFeedback || "").trim();
+            const chave = (ev.buyerName || "") + texto.slice(0, 30);
+            if (vistos.has(chave)) continue;
+            vistos.add(chave);
+            const fotos = (ev.images || []).map(i => (i.startsWith("//") ? "https:" + i : i));
+            if (!texto && fotos.length === 0) continue;
+            resultado.reviews.push({
+              nome:  ev.buyerName || "Cliente AliExpress",
+              pais:  ev.buyerCountry || "",
+              nota:  Math.round((ev.buyerEval || 100) / 20),  // 100 -> 5 estrelas
+              texto: texto,
+              fotos: fotos,
+              data:  ev.evalDate || ev.evaDate || "",
+            });
+          }
+        } catch (e) {}
+        if (resultado.reviews.length >= 25) break;
+      }
+    } catch (e) {}
+  }
+
   return resultado;
 }
 
 // ── RENDER PREVIEW ────────────────────────────────────────────────────────────
 function renderPreview(d) {
   document.getElementById("prev-titulo").textContent = d.titulo || "Produto AliExpress";
+  // Mostra contagem de reviews capturadas
+  const nRev = (d.reviews || []).length;
+  const nFoto = (d.reviews || []).filter(r => r.fotos && r.fotos.length).length;
+  const elRev = document.getElementById("prev-reviews");
+  if (elRev) elRev.textContent = nRev ? `⭐ ${nRev} avaliações capturadas (${nFoto} com foto)` : "Sem avaliações encontradas";
 
   const precoBrl = d.preco_brl || 0;
   document.getElementById("prev-preco").textContent =
@@ -311,6 +352,23 @@ async function enviarParaPainel() {
     });
     const data = await resp.json();
     if (data.ok) {
+      // Importa as avaliações reais para o produto recém-criado
+      const reviews = _dadosCapturados.reviews || [];
+      const novoId  = data.produto && data.produto.id;
+      if (novoId && reviews.length) {
+        try {
+          const rev = await fetch(`${adminUrl}/api/admin/avaliacoes/importar`, {
+            method:  "POST",
+            headers: {"Content-Type":"application/json", "Authorization":`Bearer ${adminToken}`},
+            body: JSON.stringify({ produto_id: novoId, reviews }),
+          });
+          const rd = await rev.json();
+          if (rd.ok) {
+            const msg = document.querySelector("#estado-sucesso p");
+            if (msg) msg.textContent = `Produto + ${rd.importadas} avaliações reais importadas! Revise e publique.`;
+          }
+        } catch(e) {}
+      }
       document.getElementById("link-painel").href = `${adminUrl}/admin-panel/`;
       mostrar("sucesso");
     } else {

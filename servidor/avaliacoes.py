@@ -84,6 +84,42 @@ def media_produto(produto_id: str) -> dict:
     return {"media": round(media, 1), "total": len(avs)}
 
 
+def importar_aliexpress(produto_id: str, reviews: list[dict]) -> int:
+    """
+    Importa avaliações reais vindas da extensão (AliExpress feedback API).
+    Cada review: {nome, pais, nota, texto, fotos[], data}.
+    Evita duplicar pelo conjunto nome+texto.
+    """
+    existentes = {(a.get("nome",""), a.get("texto","")[:50])
+                  for a in db.listar(COLECAO) if a.get("produto_id") == produto_id}
+    importadas = 0
+    for r in reviews:
+        nome  = (r.get("nome") or "Cliente").strip()[:40]
+        texto = (r.get("texto") or "").strip()[:600]
+        if (nome, texto[:50]) in existentes:
+            continue
+        if not texto and not r.get("fotos"):
+            continue  # ignora reviews vazias sem foto
+        av = {
+            "id":         str(uuid.uuid4())[:8],
+            "produto_id": produto_id,
+            "pedido_id":  "",
+            "nome":       nome,
+            "pais":       r.get("pais", ""),
+            "nota":       max(1, min(5, int(r.get("nota", 5)))),
+            "texto":      texto,
+            "foto":       (r.get("fotos") or [""])[0],
+            "fotos":      r.get("fotos", []),
+            "origem":     "aliexpress",
+            "aprovado":   True,
+            "criado_em":  r.get("data") or datetime.now().isoformat(),
+        }
+        db.put(COLECAO, av["id"], av)
+        existentes.add((nome, texto[:50]))
+        importadas += 1
+    return importadas
+
+
 def _semear():
     """Algumas avaliações iniciais realistas para a loja não nascer vazia."""
     if db.get("_sistema", "avaliacoes_semeadas"):
