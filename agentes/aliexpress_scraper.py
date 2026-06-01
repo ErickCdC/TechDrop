@@ -15,11 +15,11 @@ client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 # ── CONFIGURAÇÕES DE MARGEM ────────────────────────────────────────────────────
 USD_BRL              = float(os.getenv("USD_BRL",         "5.70"))
-CUSTO_TRAFEGO_POR_VENDA = float(os.getenv("CPV_TRAFEGO", "15.0"))  # R$ custo médio de tráfego por venda
+CUSTO_TRAFEGO_POR_VENDA = float(os.getenv("CPV_TRAFEGO", "10.0"))  # R$ custo médio de tráfego por venda
 TAXA_GATEWAY_PCT     = float(os.getenv("TAXA_GATEWAY",    "3.5"))   # % taxa cartão/pix
 TAXA_PLATAFORMA_PCT  = float(os.getenv("TAXA_PLATAFORMA", "0.0"))   # % se usar Shopify, Yampi etc
-MARGEM_LIQUIDA_ALVO  = float(os.getenv("MARGEM_ALVO",     "35.0"))  # % margem líquida desejada
-VARIACAO_FRETE_PCT   = 12.0  # +12% sobre custo para cobrir variação de frete/alfândega
+MARGEM_LIQUIDA_ALVO  = float(os.getenv("MARGEM_ALVO",     "25.0"))  # % margem líquida desejada
+VARIACAO_FRETE_PCT   = 5.0  # +5% sobre custo (preço BRL do AliExpress já inclui frete)
 
 HEADERS = {
     "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",

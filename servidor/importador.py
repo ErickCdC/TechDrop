@@ -25,9 +25,9 @@ def _get_client():
     return Anthropic(api_key=key)
 
 USD_BRL          = float(os.getenv("USD_BRL",        "5.70"))
-CUSTO_TRAFEGO    = float(os.getenv("CPV_TRAFEGO",    "15.0"))
+CUSTO_TRAFEGO    = float(os.getenv("CPV_TRAFEGO",    "10.0"))
 TAXA_GATEWAY_PCT = float(os.getenv("TAXA_GATEWAY",   "3.5"))
-MARGEM_ALVO      = float(os.getenv("MARGEM_ALVO",    "35.0"))
+MARGEM_ALVO      = float(os.getenv("MARGEM_ALVO",    "25.0"))
 
 HEADERS_BROWSER = {
     "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -43,7 +43,7 @@ def _extrair_id(url: str) -> str | None:
 
 
 def _calcular_preco(custo_usd: float) -> dict:
-    custo_brl   = custo_usd * USD_BRL * 1.12
+    custo_brl   = custo_usd * USD_BRL * 1.05
     divisor     = 1 - (TAXA_GATEWAY_PCT + MARGEM_ALVO) / 100
     preco_venda = (custo_brl + CUSTO_TRAFEGO) / divisor
     preco_venda = round(preco_venda / 10) * 10 - 1

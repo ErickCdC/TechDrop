@@ -1,4 +1,4 @@
-const USD_BRL = 5.70, TRAFEGO = 15, GATEWAY_PCT = 3.5, MARGEM_ALVO = 35;
+const USD_BRL = 5.70, TRAFEGO = 10, GATEWAY_PCT = 3.5, MARGEM_ALVO = 25, FRETE_PCT = 5;
 let _dadosCapturados = null;
 let _imgSelecionada  = "";
 
@@ -76,6 +76,22 @@ async function extrairDadosPagina() {
     }
   }
 
+  // ── PREÇO VIA URL (mais confiável) ─────────────────────────────────────────
+  // A URL do AliExpress traz o preço no parâmetro pdp_npi: ...!BRL!original!venda!...
+  try {
+    const npi = decodeURIComponent(window.location.href.match(/pdp_npi=([^&]+)/)?.[1] || "");
+    if (npi) {
+      const partes = npi.split("!");          // ex: 6@dis BRL 294.72 136.52 ...
+      const iMoeda = partes.findIndex(x => /^[A-Z]{3}$/.test(x));
+      if (iMoeda >= 0) {
+        const p1 = parseFloat(partes[iMoeda + 1]);  // original
+        const p2 = parseFloat(partes[iMoeda + 2]);  // venda (com desconto)
+        if (!isNaN(p2) && p2 > 0) resultado.preco_brl = p2;
+        if (!isNaN(p1) && p1 > 0) resultado.preco_original_brl = p1;
+      }
+    }
+  } catch (e) {}
+
   // ── FONTE PRINCIPAL: JSON embutido (runParams.data) ────────────────────────
   // O AliExpress guarda preço, variantes e imagens num objeto JSON na página.
   let DATA = null;
@@ -107,12 +123,14 @@ async function extrairDadosPagina() {
     const tm = DATA.titleModule || DATA.productInfoComponent || {};
     if (tm.subject && tm.subject.length > 5) resultado.titulo = tm.subject;
 
-    // Preço (priceModule)
+    // Preço (priceModule) — só se a URL não trouxe
     const pm = DATA.priceModule || {};
     const cur = pm.minActivityAmount || pm.minAmount || pm.maxActivityAmount || pm.maxAmount || {};
-    resultado.preco_brl = num(cur.value || cur.formatedAmount || pm.formatedActivityPrice || pm.formatedPrice);
+    if (!resultado.preco_brl)
+      resultado.preco_brl = num(cur.value || cur.formatedAmount || pm.formatedActivityPrice || pm.formatedPrice);
     const orig = pm.maxAmount || pm.minAmount || {};
-    resultado.preco_original_brl = num(orig.value || pm.formatedPrice) || 0;
+    if (!resultado.preco_original_brl)
+      resultado.preco_original_brl = num(orig.value || pm.formatedPrice) || 0;
 
     // Imagens (imageModule)
     const im = DATA.imageModule || {};
@@ -353,7 +371,7 @@ function renderPreview(d) {
 
   // Precificação
   const custoUsd   = precoBrl > 0 ? precoBrl / USD_BRL : 15;
-  const custoBrl   = custoUsd * USD_BRL * 1.12;
+  const custoBrl   = custoUsd * USD_BRL * (1 + FRETE_PCT/100);
   const divisor    = 1 - (GATEWAY_PCT + MARGEM_ALVO) / 100;
   let   precoVenda = (custoBrl + TRAFEGO) / divisor;
   precoVenda       = Math.round(precoVenda / 10) * 10 - 1;
