@@ -421,10 +421,15 @@ const API = (url, opts={}) => fetch(url, {
 // ── AUTENTICAÇÃO ───────────────────────────────────────────────────────────────
 async function verificarLogin() {
   const r = await API("/api/admin/me").catch(()=>null);
-  if (!r || !r.ok) { window.location.href = "/admin-panel/login"; return false; }
+  if (!r || !r.ok) { _irParaLogin(); return false; }
   const d = await r.json();
-  if (!d.ok) { window.location.href = "/admin-panel/login"; return false; }
+  if (!d.ok) { _irParaLogin(); return false; }
   return true;
+}
+function _irParaLogin() {
+  // Limpa token inválido ANTES de redirecionar (evita loop infinito)
+  localStorage.removeItem("admin_token");
+  window.location.href = "/admin-panel/login";
 }
 async function logout() {
   await API("/api/admin/logout", {method:"POST"});

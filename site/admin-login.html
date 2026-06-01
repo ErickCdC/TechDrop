@@ -64,7 +64,18 @@ function mostrarErro(msg) {
   el.textContent = msg; el.classList.add("show");
 }
 // Se já logado, redireciona
-if (localStorage.getItem("admin_token")) window.location.href = "/admin-panel/";
+// Só redireciona se o token for REALMENTE válido (evita loop de redirecionamento)
+(async () => {
+  const t = localStorage.getItem("admin_token");
+  if (!t) return;
+  try {
+    const r = await fetch("/api/admin/me", { headers: { "Authorization": "Bearer " + t } });
+    if (r.ok) window.location.href = "/admin-panel/";
+    else localStorage.removeItem("admin_token");  // token velho/inválido — limpa
+  } catch (e) {
+    localStorage.removeItem("admin_token");
+  }
+})();
 </script>
 </body>
 </html>
