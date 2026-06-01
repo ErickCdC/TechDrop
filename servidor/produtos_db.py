@@ -43,7 +43,9 @@ def criar(dados: dict) -> dict:
 def atualizar(pid: str, dados: dict) -> dict | None:
     existente = db.get(COLECAO, pid)
     if not existente:
-        return None
+        # Produto sumiu (ex: banco reiniciou sem Postgres) — recria com o id
+        # para que a edição nunca falhe e os dados não se percam.
+        existente = {"id": pid, "criado_em": datetime.now().isoformat()}
     atualizado = {**existente, **dados, "id": pid, "atualizado_em": datetime.now().isoformat()}
     db.put(COLECAO, pid, atualizado)
     return atualizado
