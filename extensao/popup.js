@@ -53,6 +53,7 @@ async function extrairDadosPagina() {
     imagens:  [],
     video:    null,
     reviews:  [],
+    especificacoes: [],
     preco_brl: 0,
     preco_original_brl: 0,
     variantes: [],
@@ -135,6 +136,14 @@ async function extrairDadosPagina() {
     // Imagens (imageModule)
     const im = DATA.imageModule || {};
     (im.imagePathList || []).forEach(u => addImg(u));
+
+    // Especificações (specsModule) — Marca, Modelo, Material, etc.
+    const spm = DATA.specsModule || DATA.productPropComponent || {};
+    (spm.props || spm.productProperty || []).forEach(p => {
+      const nome = (p.attrName || p.attrNameOrigin || "").trim();
+      const valor = (p.attrValue || p.attrValueOrigin || "").trim();
+      if (nome && valor) resultado.especificacoes.push({ nome, valor });
+    });
 
     // Variantes (skuModule) — Cor, Tamanho, Capacidade etc.
     const sm = DATA.skuModule || {};
@@ -391,6 +400,15 @@ function renderPreview(d) {
   _dadosCapturados._imagem_sel  = _imgSelecionada;
 }
 
+// Monta uma descrição a partir do título + especificações capturadas
+function _montarDescricao(d) {
+  let txt = "";
+  if (d.especificacoes && d.especificacoes.length) {
+    txt = d.especificacoes.slice(0, 12).map(e => `${e.nome}: ${e.valor}`).join(". ");
+  }
+  return txt || d.titulo || "";
+}
+
 // ── ENVIAR PARA O PAINEL ──────────────────────────────────────────────────────
 async function enviarParaPainel() {
   const adminUrl   = document.getElementById("cfg-url").value.trim().replace(/\/$/, "");
@@ -415,7 +433,8 @@ async function enviarParaPainel() {
     ativo:           true,
     badge:           "Novo",
     categoria:       "acessorios",
-    descricao:       "",
+    especificacoes:  d.especificacoes || [],
+    descricao:       _montarDescricao(d),
   };
 
   try {

@@ -14,7 +14,12 @@
     .breadcrumb{font-size:13px;color:var(--muted);margin-left:auto;}
     .breadcrumb span{color:var(--accent);font-weight:600;}
     .wrap{max-width:1000px;margin:32px auto;padding:0 5%;display:grid;grid-template-columns:1fr 380px;gap:28px;}
-    @media(max-width:700px){.wrap{grid-template-columns:1fr;}}
+    @media(max-width:700px){
+      .wrap{grid-template-columns:1fr;gap:20px;margin:16px auto;}
+      .form-row{grid-template-columns:1fr;}
+      .pay-methods{grid-template-columns:1fr;}
+      .resumo{position:static;}
+    }
 
     /* FORMULÁRIO */
     .form-box{background:#fff;border:1px solid var(--border);border-radius:12px;padding:28px;}
