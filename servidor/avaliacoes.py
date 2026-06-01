@@ -121,15 +121,5 @@ def importar_aliexpress(produto_id: str, reviews: list[dict]) -> int:
 
 
 def _semear():
-    """Algumas avaliações iniciais realistas para a loja não nascer vazia."""
-    if db.get("_sistema", "avaliacoes_semeadas"):
-        return
-    iniciais = [
-        {"produto_id":"prod001","nome":"Marcos T.","nota":5,"texto":"Chegou em 18 dias, qualidade absurda pelo preço. Som melhor do que fones de R$ 400 que já tive.","foto":"https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop&q=80"},
-        {"produto_id":"prod002","nome":"Ana R.","nota":5,"texto":"Powerbank carregou meu celular 3x e ainda sobrou bateria. Embalagem veio perfeita.","foto":"https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=400&h=300&fit=crop&q=80"},
-        {"produto_id":"prod004","nome":"Rodrigo T.","nota":5,"texto":"Carrega notebook, celular e tablet ao mesmo tempo. Esqueci o carregador original na gaveta.","foto":"https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&h=300&fit=crop&q=80"},
-        {"produto_id":"prod003","nome":"Fernanda S.","nota":4,"texto":"Demorou 22 dias mas valeu muito a pena. Preço era menos da metade do que vi em outras lojas.","foto":""},
-    ]
-    for i in iniciais:
-        criar(i["produto_id"], i)
-    db.put("_sistema", "avaliacoes_semeadas", {"feito": True})
+    """Sem avaliações fantasma. A loja só mostra avaliações reais."""
+    return

@@ -336,7 +336,6 @@ def _listar_pedidos() -> list[dict]:
 
 @app.route("/api/avaliacoes/destaque", methods=["GET"])
 def avaliacoes_destaque():
-    avaliacoes._semear()
     return jsonify({"ok": True, "avaliacoes": avaliacoes.listar_destaque(6)})
 
 @app.route("/api/avaliacoes/produto/<produto_id>", methods=["GET"])
@@ -522,6 +521,20 @@ def admin_atualizar_produto(pid):
 def admin_deletar_produto(pid):
     ok = produtos_db.deletar(pid)
     return jsonify({"ok": ok})
+
+@app.route("/api/admin/limpar-tudo", methods=["POST"])
+@login_required
+def admin_limpar_tudo():
+    """Apaga TODOS os produtos e avaliações (limpeza geral)."""
+    n_prod = 0
+    for p in produtos_db.listar():
+        if produtos_db.deletar(p["id"]):
+            n_prod += 1
+    n_av = 0
+    for a in avaliacoes.listar_todas():
+        if avaliacoes.deletar(a["id"]):
+            n_av += 1
+    return jsonify({"ok": True, "produtos_removidos": n_prod, "avaliacoes_removidas": n_av})
 
 @app.route("/api/admin/importar", methods=["POST"])
 @login_required

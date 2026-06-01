@@ -182,6 +182,9 @@
         <button id="btn-publicar" style="background:#f59e0b;color:#111;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;" onclick="publicarNoSite()">
           🚀 Publicar no site
         </button>
+        <button style="background:var(--red)20;color:var(--red);border:1px solid var(--red)40;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;" onclick="limparTudo()">
+          🗑️ Limpar tudo
+        </button>
       </div>
     </div>
 
@@ -974,6 +977,18 @@ function toast(msg,tipo=""){
   el.textContent=msg;
   el.className="toast show"+(tipo?" "+tipo:"");
   setTimeout(()=>el.classList.remove("show"),3000);
+}
+
+// ── LIMPAR TUDO ───────────────────────────────────────────────────────────────
+async function limparTudo() {
+  if (!confirm("Apagar TODOS os produtos e avaliações? Esta ação não pode ser desfeita.")) return;
+  if (!confirm("Tem certeza mesmo? Tudo será removido.")) return;
+  const r = await API("/api/admin/limpar-tudo", {method:"POST"});
+  const d = await r.json();
+  if (d.ok) {
+    toast(`${d.produtos_removidos} produtos e ${d.avaliacoes_removidas} avaliações removidos`);
+    carregarProdutos();
+  } else toast("Erro ao limpar", "erro");
 }
 
 // ── PUBLICAR NO SITE ──────────────────────────────────────────────────────────
