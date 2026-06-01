@@ -832,6 +832,13 @@ def admin_metricas():
 @app.route("/api/produtos", methods=["GET"])
 def listar_produtos():
     ativos = [p for p in produtos_db.listar() if p.get("ativo", True)]
+    # Enriquece com a média real de avaliações
+    for p in ativos:
+        resumo = avaliacoes.media_produto(p["id"])
+        if resumo["total"] > 0:
+            p["avaliacao"] = resumo["media"]
+            p["vendas"]    = resumo["total"]  # mostra nº de avaliações reais
+            p["tem_reviews_reais"] = True
     return jsonify({"ok": True, "produtos": ativos})
 
 

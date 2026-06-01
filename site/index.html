@@ -756,7 +756,11 @@ function renderDestaque(p) {
   document.getElementById("main-foto").src = p.imagem || "";
   document.getElementById("dest-categoria").textContent = (p.categoria || "Destaque");
   document.getElementById("dest-titulo").textContent = p.titulo;
-  document.getElementById("dest-aval").textContent = `${p.avaliacao||4.8} · ${p.vendas||0} avaliações`;
+  const nota = p.avaliacao || 4.8;
+  const nCheia = Math.round(nota);
+  document.getElementById("dest-stars").textContent = "★".repeat(nCheia) + "☆".repeat(5-nCheia);
+  document.getElementById("dest-aval").textContent =
+    `${nota} · ${p.vendas||0} ${p.tem_reviews_reais ? 'avaliações' : 'vendidos'}`;
   const precoDe = p.preco_de || Math.round(p.preco_venda * 1.6);
   const off = Math.round((1 - p.preco_venda / precoDe) * 100);
   document.getElementById("dest-desconto").textContent = off > 0 ? `-${off}% OFF hoje` : "";
@@ -796,7 +800,7 @@ function renderProdutos(produtos) {
         <h3>${p.titulo}</h3>
         <div class="stars-row">
           <span class="stars">${stars}${empty}</span>
-          <span class="stars-count">${p.avaliacao || 4.8} (${p.vendas || 0})</span>
+          <span class="stars-count">${p.avaliacao || 4.8} ${p.tem_reviews_reais ? `(${p.vendas} avaliações)` : `(${p.vendas||0})`}</span>
         </div>
         <div class="preco-wrap">
           <div class="preco-de">R$ ${p.preco_de || Math.round(p.preco_venda * 1.6)},00</div>
