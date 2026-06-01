@@ -844,6 +844,11 @@ def admin_metricas():
 
 # ── PRODUTOS PÚBLICO ───────────────────────────────────────────────────────────
 
+@app.route("/api/status-db", methods=["GET"])
+def status_db():
+    """Diagnóstico: mostra qual banco está ativo (para checar o Postgres)."""
+    return jsonify(db.status())
+
 @app.route("/api/config", methods=["GET"])
 def get_config():
     """Configurações públicas do site (lidas pelo front)."""
