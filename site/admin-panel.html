@@ -377,12 +377,21 @@
       <div id="calc-vazio" style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0;">Digite o custo em US$ para ver o preço sugerido</div>
     </div>
 
-    <div class="field">
-      <label>Ativo no site</label>
-      <select id="prod-ativo">
-        <option value="true">Sim — aparece no site</option>
-        <option value="false">Não — oculto</option>
-      </select>
+    <div class="field-row">
+      <div class="field">
+        <label>Ativo no site</label>
+        <select id="prod-ativo">
+          <option value="true">Sim — aparece no site</option>
+          <option value="false">Não — oculto</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>⭐ Produto em destaque</label>
+        <select id="prod-destaque">
+          <option value="false">Não</option>
+          <option value="true">Sim — aparece no topo da loja</option>
+        </select>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
@@ -540,6 +549,7 @@ function abrirModalProduto(){
   document.getElementById("prod-badge").value="";
   document.getElementById("prod-link").value="";
   document.getElementById("prod-ativo").value="true";
+  document.getElementById("prod-destaque").value="false";
   document.getElementById("foto-preview-img").style.display="none";
   document.getElementById("foto-placeholder").style.display="block";
   document.getElementById("modal-produto").classList.add("show");
@@ -556,6 +566,7 @@ function editarProduto(p){
   document.getElementById("prod-badge").value=p.badge||"";
   document.getElementById("prod-link").value=p.link_aliexpress||"";
   document.getElementById("prod-ativo").value=String(p.ativo!==false);
+  document.getElementById("prod-destaque").value=String(p.destaque===true);
   previewUrl(p.imagem||"");
   document.getElementById("modal-produto").classList.add("show");
 }
@@ -596,6 +607,7 @@ async function salvarProduto(){
     link_aliexpress: document.getElementById("prod-link").value.trim(),
     categoria:    document.getElementById("prod-categoria").value,
     ativo:        document.getElementById("prod-ativo").value==="true",
+    destaque:     document.getElementById("prod-destaque").value==="true",
   };
   if(!dados.titulo){toast("Nome do produto é obrigatório","erro");return;}
   if(!dados.preco_venda){toast("Preço de venda é obrigatório","erro");return;}

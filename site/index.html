@@ -425,7 +425,7 @@
 </div>
 
 <!-- PRODUTO DESTAQUE -->
-<div class="section" id="produto-destaque">
+<div class="section" id="produto-destaque" style="display:none;">
   <div class="sec-header">
     <h2>⭐ Produto em destaque</h2>
     <a href="#produtos">Ver todos →</a>
@@ -433,35 +433,24 @@
   <div class="destaque-wrap">
     <div class="destaque-imgs">
       <div class="destaque-main-img">
-        <img id="main-foto" src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=600&fit=crop&q=80" alt="Fone ANC Over-Ear"/>
+        <img id="main-foto" src="" alt=""/>
       </div>
-      <div class="destaque-thumbs">
-        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=120&h=120&fit=crop&q=80" class="ativo" onclick="trocarFoto(this,'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=600&fit=crop&q=80')" alt=""/>
-        <img src="https://images.unsplash.com/photo-1583394838336-acd977736f90?w=120&h=120&fit=crop&q=80" onclick="trocarFoto(this,'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=600&h=600&fit=crop&q=80')" alt=""/>
-        <img src="https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=120&h=120&fit=crop&q=80" onclick="trocarFoto(this,'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=600&h=600&fit=crop&q=80')" alt=""/>
-        <img src="https://images.unsplash.com/photo-1484704849700-f032a568e944?w=120&h=120&fit=crop&q=80" onclick="trocarFoto(this,'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=600&h=600&fit=crop&q=80')" alt=""/>
-      </div>
+      <div class="destaque-thumbs" id="destaque-thumbs"></div>
     </div>
     <div class="destaque-info">
-      <div class="tag-categoria">Fones & Áudio</div>
-      <h2>Fone Over-Ear ANC Pro — Cancelamento Ativo de Ruído</h2>
+      <div class="tag-categoria" id="dest-categoria">Destaque</div>
+      <h2 id="dest-titulo"></h2>
       <div class="avaliacao">
-        <span class="stars">★★★★★</span>
-        <span class="num">4.9 · 312 avaliações</span>
+        <span class="stars" id="dest-stars">★★★★★</span>
+        <span class="num" id="dest-aval"></span>
       </div>
-      <div class="desconto-pill">-52% OFF hoje</div>
-      <div class="preco-de">De R$ 389,00</div>
-      <div class="preco-por">R$ 189,00</div>
-      <div class="preco-parcel">ou 3x de R$ 63,00 sem juros no cartão</div>
-      <ul class="beneficios">
-        <li><span class="ic">✓</span> Cancelamento ativo de ruído (ANC)</li>
-        <li><span class="ic">✓</span> 40 horas de bateria</li>
-        <li><span class="ic">✓</span> Bluetooth 5.3 — conexão estável</li>
-        <li><span class="ic">✓</span> Driver 40mm — graves potentes</li>
-        <li><span class="ic">✓</span> Dobrável — fácil de guardar</li>
-      </ul>
-      <button class="btn-comprar-grande" onclick="adicionarDestaque()">
-        🛒 Adicionar ao carrinho — R$ 189,00
+      <div class="desconto-pill" id="dest-desconto"></div>
+      <div class="preco-de" id="dest-preco-de"></div>
+      <div class="preco-por" id="dest-preco"></div>
+      <div class="preco-parcel" id="dest-parcel"></div>
+      <ul class="beneficios" id="dest-beneficios"></ul>
+      <button class="btn-comprar-grande" id="dest-btn" onclick="adicionarDestaque()">
+        🛒 Adicionar ao carrinho
       </button>
       <a href="#" class="btn-wish">♡ Adicionar à lista de desejos</a>
       <div class="garantia-box">
@@ -776,15 +765,48 @@ function ativarCupom(){
 }
 
 // ── CARREGA PRODUTOS DA API ───────────────────────────
+let _produtoDestaque = null;
+
 async function carregarProdutos() {
   try {
     const r = await fetch("/api/produtos");
     const d = await r.json();
-    if (!d.ok || !d.produtos?.length) return;
-    renderProdutos(d.produtos);
-  } catch(e) {
-    // API offline — mantém mensagem de carregando
-  }
+    if (!d.ok || !d.produtos?.length) {
+      document.getElementById("produtos-grid").innerHTML =
+        '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted);">Nenhum produto disponível no momento.</div>';
+      return;
+    }
+    // Destaque = produto marcado como destaque, ou o primeiro
+    const destaque = d.produtos.find(p => p.destaque) || d.produtos[0];
+    renderDestaque(destaque);
+    // Grade = os demais (sem repetir o destaque)
+    renderProdutos(d.produtos.filter(p => p.id !== destaque.id));
+  } catch(e) {}
+}
+
+function renderDestaque(p) {
+  _produtoDestaque = p;
+  document.getElementById("produto-destaque").style.display = "block";
+  document.getElementById("main-foto").src = p.imagem || "";
+  document.getElementById("dest-categoria").textContent = (p.categoria || "Destaque");
+  document.getElementById("dest-titulo").textContent = p.titulo;
+  document.getElementById("dest-aval").textContent = `${p.avaliacao||4.8} · ${p.vendas||0} avaliações`;
+  const precoDe = p.preco_de || Math.round(p.preco_venda * 1.6);
+  const off = Math.round((1 - p.preco_venda / precoDe) * 100);
+  document.getElementById("dest-desconto").textContent = off > 0 ? `-${off}% OFF hoje` : "";
+  document.getElementById("dest-preco-de").textContent = `De R$ ${precoDe},00`;
+  document.getElementById("dest-preco").textContent = `R$ ${Math.floor(p.preco_venda)},00`;
+  document.getElementById("dest-parcel").textContent = `ou 3x de R$ ${(p.preco_venda/3).toFixed(2).replace(".",",")} sem juros`;
+  document.getElementById("dest-btn").innerHTML = `🛒 Adicionar ao carrinho — R$ ${Math.floor(p.preco_venda)},00`;
+  // Benefícios (da descrição, separados por vírgula/ponto)
+  const bens = (p.descricao || "").split(/[,.;]/).map(s=>s.trim()).filter(s=>s.length>3).slice(0,5);
+  document.getElementById("dest-beneficios").innerHTML =
+    bens.length ? bens.map(b=>`<li><span class="ic">✓</span> ${b}</li>`).join("")
+                : `<li><span class="ic">✓</span> Produto premium selecionado</li>`;
+  // Galeria de thumbs (usa imagens_extra se houver)
+  const imgs = (p.imagens_extra && p.imagens_extra.length ? p.imagens_extra : [p.imagem]).slice(0,4);
+  document.getElementById("destaque-thumbs").innerHTML = imgs.map((img,i)=>
+    `<img src="${img}" class="${i===0?'ativo':''}" onclick="trocarFoto(this,'${img}')" alt=""/>`).join("");
 }
 
 function renderProdutos(produtos) {
@@ -844,19 +866,12 @@ function atualizarBadge() {
 
 function _extrairProdutoDoCard(btn) {
   const card = btn.closest(".prod-card");
-  const img   = card.querySelector(".prod-img-wrap img");
-  const nome  = card.querySelector("h3").textContent;
-  const precoEl = card.querySelector(".preco-por");
-  // Pega só o texto direto do elemento, ignorando o <small>,00</small>
-  const precoTxt = Array.from(precoEl.childNodes)
-    .filter(n => n.nodeType === 3)
-    .map(n => n.textContent.replace(/[^\d]/g, ""))
-    .join("");
+  // Usa os data-attributes reais do banco (id estável evita duplicatas)
   return {
-    id:         nome.replace(/\s+/g, "-").toLowerCase().slice(0, 20) + "-" + Date.now(),
-    titulo_pt:  nome,
-    imagem:     img ? img.src : "",
-    preco_venda: parseInt(precoTxt) || 0,
+    id:          card.dataset.id,
+    titulo_pt:   card.dataset.titulo,
+    imagem:      card.dataset.img,
+    preco_venda: parseFloat(card.dataset.preco) || 0,
     quantidade:  1,
     link_aliexpress: "",
   };
@@ -864,7 +879,7 @@ function _extrairProdutoDoCard(btn) {
 
 function adicionarCarrinhoProd(btn) {
   const prod = _extrairProdutoDoCard(btn);
-  const existente = carrinho.find(i => i.titulo_pt === prod.titulo_pt);
+  const existente = carrinho.find(i => i.id === prod.id);
   if (existente) {
     existente.quantidade = (existente.quantidade || 1) + 1;
   } else {
@@ -877,13 +892,15 @@ function adicionarCarrinhoProd(btn) {
 }
 
 function adicionarDestaque() {
+  if (!_produtoDestaque) return;
+  const p = _produtoDestaque;
   const prod = {
-    id:          "fone-anc-pro",
-    titulo_pt:   "Fone Over-Ear ANC Pro — Cancelamento Ativo de Ruído",
-    imagem:      document.getElementById("main-foto").src,
-    preco_venda: 189,
+    id:          p.id,
+    titulo_pt:   p.titulo,
+    imagem:      p.imagem,
+    preco_venda: p.preco_venda,
     quantidade:  1,
-    link_aliexpress: "",
+    link_aliexpress: p.link_aliexpress || "",
   };
   const existente = carrinho.find(i => i.id === prod.id);
   if (existente) { existente.quantidade++; } else { carrinho.push(prod); }

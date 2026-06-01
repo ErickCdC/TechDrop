@@ -14,11 +14,12 @@ COLECAO = "produtos"
 
 
 def listar() -> list[dict]:
-    produtos = db.listar(COLECAO)
-    if not produtos:
+    # Semeia os produtos iniciais UMA ÚNICA VEZ (controlado por marcador).
+    # Assim, se você apagar todos, eles NÃO voltam.
+    if not db.get("_sistema", "produtos_semeados"):
         _semear_iniciais()
-        produtos = db.listar(COLECAO)
-    return produtos
+        db.put("_sistema", "produtos_semeados", {"feito": True})
+    return db.listar(COLECAO)
 
 
 def obter(pid: str) -> dict | None:
