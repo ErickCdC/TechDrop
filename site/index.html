@@ -502,44 +502,10 @@
   </div>
 </div>
 
-<!-- DEPOIMENTOS -->
-<div class="section">
-  <div class="sec-header"><h2>O que nossos clientes dizem</h2><a href="#">Ver todas →</a></div>
-  <div class="depos-grid">
-    <div class="depo-card">
-      <div class="header-depo">
-        <div class="depo-avatar">M</div>
-        <div><div class="nome">Marcos T.</div><div class="produto-ref">Fone Over-Ear ANC Pro</div></div>
-      </div>
-      <div class="stars">★★★★★</div>
-      <p>"Chegou em 19 dias, qualidade surpreendente. O ANC é real — uso no metrô e não ouço nada. Melhor custo-benefício que já vi."</p>
-      <div class="foto-produto">
-        <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=225&fit=crop&q=80" alt="Foto do produto recebido" loading="lazy"/>
-      </div>
-    </div>
-    <div class="depo-card">
-      <div class="header-depo">
-        <div class="depo-avatar" style="background:#16a34a;">A</div>
-        <div><div class="nome">Ana R.</div><div class="produto-ref">Powerbank 20.000mAh</div></div>
-      </div>
-      <div class="stars">★★★★★</div>
-      <p>"Carregou meu celular 3 vezes e ainda tinha bateria. Embalagem chegou perfeita, sem nenhum amassado. Já recomendei para todo mundo."</p>
-      <div class="foto-produto">
-        <img src="https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=400&h=225&fit=crop&q=80" alt="Foto do produto recebido" loading="lazy"/>
-      </div>
-    </div>
-    <div class="depo-card">
-      <div class="header-depo">
-        <div class="depo-avatar" style="background:#d97706;">R</div>
-        <div><div class="nome">Rodrigo T.</div><div class="produto-ref">Carregador GaN 65W</div></div>
-      </div>
-      <div class="stars">★★★★★</div>
-      <p>"Carrega notebook, celular e tablet ao mesmo tempo. Esqueci o carregador original na gaveta. Esse GaN é outra categoria."</p>
-      <div class="foto-produto">
-        <img src="https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&h=225&fit=crop&q=80" alt="Foto do produto recebido" loading="lazy"/>
-      </div>
-    </div>
-  </div>
+<!-- DEPOIMENTOS (carregados do banco de avaliações reais) -->
+<div class="section" id="secao-avaliacoes" style="display:none;">
+  <div class="sec-header"><h2>O que nossos clientes dizem</h2></div>
+  <div class="depos-grid" id="depos-grid"></div>
 </div>
 
 <!-- RODAPÉ -->
@@ -843,10 +809,36 @@ function renderProdutos(produtos) {
   }).join("");
 }
 
+// ── CARREGA AVALIAÇÕES REAIS ──────────────────────────
+async function carregarAvaliacoes() {
+  try {
+    const r = await fetch("/api/avaliacoes/destaque");
+    const d = await r.json();
+    if (!d.ok || !d.avaliacoes?.length) return;
+    const cores = ["#2563eb","#16a34a","#d97706","#dc2626","#7c3aed","#0891b2"];
+    document.getElementById("secao-avaliacoes").style.display = "block";
+    document.getElementById("depos-grid").innerHTML = d.avaliacoes.map((a,i) => {
+      const inicial = (a.nome||"C")[0].toUpperCase();
+      const estrelas = "★".repeat(a.nota) + "☆".repeat(5-a.nota);
+      return `
+      <div class="depo-card">
+        <div class="header-depo">
+          <div class="depo-avatar" style="background:${cores[i%cores.length]};">${inicial}</div>
+          <div><div class="nome">${a.nome}</div><div class="produto-ref">Compra verificada ✓</div></div>
+        </div>
+        <div class="stars">${estrelas}</div>
+        <p>"${a.texto || 'Recomendo!'}"</p>
+        ${a.foto ? `<div class="foto-produto"><img src="${a.foto}" alt="Foto do cliente" loading="lazy"/></div>` : ''}
+      </div>`;
+    }).join("");
+  } catch(e) {}
+}
+
 // ── INIT ─────────────────────────────────────────────
 aplicarGanchos();
 tick();
 carregarProdutos();
+carregarAvaliacoes();
 
 // ══════════════════════════════════════════════════════
 // CARRINHO

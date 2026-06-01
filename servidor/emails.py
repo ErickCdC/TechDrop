@@ -215,6 +215,36 @@ def recuperar_carrinho(pedido: dict):
     return _enviar(email, f"🛒 {nome}, seus produtos estão esperando — 10% OFF", html)
 
 
+# ── PEDIR AVALIAÇÃO (após entrega) ────────────────────────────────────────────
+
+def pedir_avaliacao(pedido: dict, link_avaliacao: str):
+    cliente = pedido.get("cliente", {})
+    email   = cliente.get("email", "")
+    nome    = (cliente.get("nome", "") or "Olá").split()[0]
+    if not email:
+        return False
+
+    html = _base(f"""
+    <h2 style="color:#111827;margin-bottom:8px;">{nome}, o que você achou? ⭐</h2>
+    <p style="color:#6b7280;">Seu pedido <strong>#{pedido.get('id','')}</strong> foi entregue!
+    Sua opinião ajuda demais outros clientes — e leva só 1 minuto.</p>
+
+    <div style="text-align:center;margin:24px 0;">
+      <div style="font-size:32px;letter-spacing:6px;margin-bottom:14px;">⭐⭐⭐⭐⭐</div>
+      <a href="{link_avaliacao}" style="background:#2563eb;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:800;font-size:15px;">
+        Avaliar minha compra →
+      </a>
+    </div>
+
+    <div style="background:#eff6ff;border-radius:8px;padding:14px;text-align:center;">
+      <p style="margin:0;font-size:13px;color:#1d4ed8;">
+        📸 Envie uma foto do produto e ganhe destaque na nossa loja!
+      </p>
+    </div>""")
+
+    return _enviar(email, f"⭐ {nome}, avalie sua compra e ajude outros clientes", html)
+
+
 # ── DISPUTA ABERTA ────────────────────────────────────────────────────────────
 
 def notificar_disputa_aberta(pedido: dict, motivo: str):

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Avaliar minha compra — TechDrop</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root{--accent:#2563eb;--green:#16a34a;--star:#f59e0b;--border:#e5e7eb;--muted:#6b7280;--bg:#f9fafb;--text:#111827;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);font-size:15px;}
+    header{background:#fff;border-bottom:1px solid var(--border);padding:16px 5%;}
+    .logo{font-size:19px;font-weight:900;color:var(--accent);text-decoration:none;}
+    .wrap{max-width:560px;margin:28px auto;padding:0 5%;}
+    h1{font-size:22px;font-weight:900;margin-bottom:6px;}
+    .sub{color:var(--muted);font-size:14px;margin-bottom:24px;}
+
+    .item-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;}
+    .item-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+    .item-head img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border);}
+    .item-head h3{font-size:14px;font-weight:700;}
+
+    .stars-input{display:flex;gap:6px;margin-bottom:14px;}
+    .stars-input span{font-size:34px;color:#d1d5db;cursor:pointer;transition:color .1s;}
+    .stars-input span.on{color:var(--star);}
+
+    textarea{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:14px;font-family:inherit;outline:none;resize:vertical;min-height:80px;margin-bottom:12px;}
+    textarea:focus{border-color:var(--accent);}
+
+    .foto-upload{border:2px dashed var(--border);border-radius:8px;padding:18px;text-align:center;cursor:pointer;margin-bottom:12px;font-size:13px;color:var(--muted);}
+    .foto-upload:hover{border-color:var(--accent);}
+    .foto-upload img{max-width:120px;border-radius:8px;margin-top:8px;}
+
+    .btn{width:100%;background:var(--accent);color:#fff;border:none;padding:13px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;}
+    .btn:hover{background:#1d4ed8;}
+    .enviado{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;text-align:center;color:var(--green);font-weight:700;font-size:14px;}
+
+    .sucesso-geral{text-align:center;padding:48px 20px;}
+    .sucesso-geral .ic{font-size:56px;margin-bottom:16px;}
+    .sucesso-geral h2{font-size:22px;font-weight:900;margin-bottom:8px;}
+    .sucesso-geral p{color:var(--muted);margin-bottom:20px;}
+    .sucesso-geral a{background:var(--accent);color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;}
+    .erro-box{text-align:center;padding:48px 20px;color:var(--muted);}
+  </style>
+</head>
+<body>
+
+<header><a href="/" class="logo">TechDrop</a></header>
+
+<div class="wrap">
+  <div id="loading" style="text-align:center;padding:48px;color:var(--muted);">Carregando...</div>
+
+  <div id="conteudo" style="display:none;">
+    <h1>Avalie sua compra ⭐</h1>
+    <p class="sub">Sua opinião ajuda outros clientes. Leva só 1 minuto!</p>
+    <div id="itens"></div>
+  </div>
+
+  <div id="erro" style="display:none;" class="erro-box">
+    <div style="font-size:48px;margin-bottom:12px;">⚠️</div>
+    <p>Link de avaliação inválido ou expirado.</p>
+  </div>
+
+  <div id="sucesso-geral" style="display:none;" class="sucesso-geral">
+    <div class="ic">🎉</div>
+    <h2>Obrigado pela avaliação!</h2>
+    <p>Sua opinião foi registrada e ajudará muitos clientes.</p>
+    <a href="/">Voltar à loja →</a>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const PEDIDO = (params.get("pedido") || "").toUpperCase();
+const TOKEN  = params.get("token") || "";
+const avaliacoesFeitas = {};
+
+async function init() {
+  if (!PEDIDO || !TOKEN) return mostrarErro();
+  try {
+    const r = await fetch(`/api/avaliacoes/pedido/${PEDIDO}?token=${TOKEN}`);
+    const d = await r.json();
+    if (!d.ok) return mostrarErro();
+    renderItens(d.itens || []);
+  } catch(e) { mostrarErro(); }
+}
+
+function mostrarErro() {
+  document.getElementById("loading").style.display = "none";
+  document.getElementById("erro").style.display = "block";
+}
+
+function renderItens(itens) {
+  document.getElementById("loading").style.display = "none";
+  document.getElementById("conteudo").style.display = "block";
+  const cont = document.getElementById("itens");
+  cont.innerHTML = itens.map((item, idx) => `
+    <div class="item-card" id="card-${idx}" data-pid="${item.id}">
+      <div class="item-head">
+        <img src="${item.imagem||''}" onerror="this.style.display='none'"/>
+        <h3>${item.titulo || item.titulo_pt || 'Produto'}</h3>
+      </div>
+      <div class="stars-input" id="stars-${idx}">
+        ${[1,2,3,4,5].map(n=>`<span data-n="${n}" onclick="setNota(${idx},${n})">★</span>`).join("")}
+      </div>
+      <textarea id="texto-${idx}" placeholder="Conte como foi sua experiência com o produto..."></textarea>
+      <div class="foto-upload" onclick="document.getElementById('foto-${idx}').click()">
+        📸 Adicionar foto do produto (opcional)
+        <input type="file" id="foto-${idx}" accept="image/*" style="display:none" onchange="uploadFoto(${idx})"/>
+        <div id="foto-preview-${idx}"></div>
+      </div>
+      <button class="btn" onclick="enviar(${idx})">Enviar avaliação</button>
+    </div>
+  `).join("");
+}
+
+const notas = {}, fotos = {};
+function setNota(idx, n) {
+  notas[idx] = n;
+  document.querySelectorAll(`#stars-${idx} span`).forEach(s =>
+    s.classList.toggle("on", parseInt(s.dataset.n) <= n));
+}
+
+async function uploadFoto(idx) {
+  const input = document.getElementById(`foto-${idx}`);
+  if (!input.files[0]) return;
+  const form = new FormData();
+  form.append("foto", input.files[0]);
+  const r = await fetch("/api/avaliacoes/upload-foto", {method:"POST", body:form});
+  const d = await r.json();
+  if (d.ok) {
+    fotos[idx] = d.url;
+    document.getElementById(`foto-preview-${idx}`).innerHTML = `<img src="${d.url}"/>`;
+  } else {
+    alert(d.erro || "Erro ao enviar foto");
+  }
+}
+
+async function enviar(idx) {
+  const card = document.getElementById(`card-${idx}`);
+  const pid  = card.dataset.pid;
+  const nota = notas[idx] || 5;
+  const texto= document.getElementById(`texto-${idx}`).value.trim();
+
+  const r = await fetch("/api/avaliacoes", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      pedido_id: PEDIDO, token: TOKEN, produto_id: pid,
+      nota, texto, foto: fotos[idx] || "",
+    }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    card.innerHTML = `<div class="enviado">✅ Avaliação enviada. Obrigado!</div>`;
+    avaliacoesFeitas[idx] = true;
+    // Se todas avaliadas, mostra tela final
+    if (Object.keys(avaliacoesFeitas).length === document.querySelectorAll(".item-card").length) {
+      setTimeout(() => {
+        document.getElementById("conteudo").style.display = "none";
+        document.getElementById("sucesso-geral").style.display = "block";
+      }, 1000);
+    }
+  } else {
+    alert(d.erro || "Erro ao enviar");
+  }
+}
+
+init();
+</script>
+</body>
+</html>

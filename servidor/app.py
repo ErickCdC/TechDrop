@@ -27,6 +27,8 @@ try:
                                     verificar_reembolsos_automaticos)
     from servidor import usuarios
     from servidor import cupons
+    from servidor import avaliacoes
+    from servidor.emails import pedir_avaliacao
 except ImportError:
     import db
     from auth import login_required, verificar_credenciais
@@ -41,6 +43,8 @@ except ImportError:
                           verificar_reembolsos_automaticos)
     import usuarios
     import cupons
+    import avaliacoes
+    from emails import pedir_avaliacao
 
 load_dotenv()
 
@@ -324,6 +328,83 @@ def _carregar_pedido(pedido_id: str) -> dict | None:
 def _listar_pedidos() -> list[dict]:
     pedidos = db.listar("pedidos")
     return sorted(pedidos, key=lambda p: p.get("criado_em", ""), reverse=True)
+
+
+# ── AVALIAÇÕES (REVIEWS) ───────────────────────────────────────────────────────
+
+@app.route("/api/avaliacoes/destaque", methods=["GET"])
+def avaliacoes_destaque():
+    avaliacoes._semear()
+    return jsonify({"ok": True, "avaliacoes": avaliacoes.listar_destaque(6)})
+
+@app.route("/api/avaliacoes/produto/<produto_id>", methods=["GET"])
+def avaliacoes_produto(produto_id):
+    return jsonify({
+        "ok": True,
+        "avaliacoes": avaliacoes.listar_por_produto(produto_id),
+        "resumo": avaliacoes.media_produto(produto_id),
+    })
+
+@app.route("/api/avaliacoes/upload-foto", methods=["POST"])
+def avaliacao_upload_foto():
+    """Upload público de foto de avaliação (com validação)."""
+    if "foto" not in request.files:
+        return jsonify({"ok": False, "erro": "Nenhuma foto"}), 400
+    foto = request.files["foto"]
+    ext = (foto.filename.rsplit(".", 1)[-1] or "").lower()
+    if ext not in ("jpg", "jpeg", "png", "webp"):
+        return jsonify({"ok": False, "erro": "Formato inválido"}), 400
+    # Limita tamanho (~5MB)
+    foto.seek(0, 2); tamanho = foto.tell(); foto.seek(0)
+    if tamanho > 5 * 1024 * 1024:
+        return jsonify({"ok": False, "erro": "Foto muito grande (máx 5MB)"}), 400
+    nome = f"rev_{uuid.uuid4().hex[:12]}.{ext}"
+    foto.save(UPLOADS_DIR / nome)
+    return jsonify({"ok": True, "url": f"/uploads/{nome}"})
+
+@app.route("/api/avaliacoes", methods=["POST"])
+def criar_avaliacao():
+    """Cliente envia avaliação (validada por token do pedido)."""
+    d = request.json or {}
+    pedido_id = d.get("pedido_id", "").upper()
+    token     = d.get("token", "")
+    produto_id= d.get("produto_id", "")
+    if not pedido_id or not avaliacoes.validar_token(pedido_id, token):
+        return jsonify({"ok": False, "erro": "Link de avaliação inválido"}), 403
+    av = avaliacoes.criar(produto_id, d)
+    return jsonify({"ok": True, "avaliacao": av}), 201
+
+@app.route("/api/avaliacoes/pedido/<pedido_id>", methods=["GET"])
+def avaliacao_dados_pedido(pedido_id):
+    """Retorna os itens do pedido para a página de avaliação (valida token)."""
+    token = request.args.get("token", "")
+    pedido_id = pedido_id.upper()
+    if not avaliacoes.validar_token(pedido_id, token):
+        return jsonify({"ok": False, "erro": "Link inválido"}), 403
+    pedido = _carregar_pedido(pedido_id)
+    if not pedido:
+        return jsonify({"ok": False, "erro": "Pedido não encontrado"}), 404
+    return jsonify({"ok": True, "itens": pedido.get("itens", []), "cliente_nome": pedido.get("cliente", {}).get("nome", "")})
+
+
+# ── ADMIN AVALIAÇÕES ───────────────────────────────────────────────────────────
+
+@app.route("/api/admin/avaliacoes", methods=["GET"])
+@login_required
+def admin_listar_avaliacoes():
+    return jsonify({"ok": True, "avaliacoes": avaliacoes.listar_todas()})
+
+@app.route("/api/admin/avaliacoes/<av_id>/aprovar", methods=["POST"])
+@login_required
+def admin_aprovar_avaliacao(av_id):
+    aprovado = (request.json or {}).get("aprovado", True)
+    ok = avaliacoes.definir_aprovacao(av_id, aprovado)
+    return jsonify({"ok": ok})
+
+@app.route("/api/admin/avaliacoes/<av_id>", methods=["DELETE"])
+@login_required
+def admin_deletar_avaliacao(av_id):
+    return jsonify({"ok": avaliacoes.deletar(av_id)})
 
 
 # ── CONTA DO COMPRADOR ─────────────────────────────────────────────────────────
@@ -635,8 +716,12 @@ def _job_rastreio():
             atualizados = verificar_todos_pedidos()
             for item in atualizados:
                 pedido = item["pedido"]
-                if item["evento"] == "entregue":
+                if item["evento"] == "entregue" and not pedido.get("avaliacao_solicitada"):
                     notificar_entregue(pedido)
+                    # Pede avaliação com link assinado
+                    link = f"{LOJA_URL}/avaliar?pedido={pedido['id']}&token={avaliacoes.token_avaliacao(pedido['id'])}"
+                    pedir_avaliacao(pedido, link)
+                    pedido["avaliacao_solicitada"] = True
                 _salvar_pedido(pedido)
             print(f"[AGENDADOR] {len(atualizados)} rastreio(s) atualizados")
         except Exception as e:
@@ -753,6 +838,11 @@ def admin_login_page():
 @app.route("/minha-conta.html")
 def minha_conta_page():
     return send_from_directory(app.static_folder, "minha-conta.html")
+
+@app.route("/avaliar")
+@app.route("/avaliar.html")
+def avaliar_page():
+    return send_from_directory(app.static_folder, "avaliar.html")
 
 
 if __name__ == "__main__":

@@ -127,6 +127,7 @@
   <button class="nav-item ativo" onclick="ir('dashboard')"><span class="ic">📊</span> Dashboard</button>
   <button class="nav-item" onclick="ir('produtos')"><span class="ic">📦</span> Produtos</button>
   <button class="nav-item" onclick="ir('pedidos')"><span class="ic">🛒</span> Pedidos</button>
+  <button class="nav-item" onclick="ir('avaliacoes')"><span class="ic">⭐</span> Avaliações</button>
   <button class="nav-item" onclick="ir('horarios')"><span class="ic">🕐</span> Horários</button>
   <div class="sidebar-footer">
     <a href="/" target="_blank" class="btn-site">Ver site →</a>
@@ -213,6 +214,12 @@
 
     <!-- CARDS DE PEDIDO -->
     <div id="pedidos-cards" style="display:grid;gap:14px;"></div>
+  </div>
+
+  <!-- AVALIAÇÕES -->
+  <div class="page" id="page-avaliacoes">
+    <div class="page-header"><h1>Avaliações dos clientes</h1></div>
+    <div id="avaliacoes-lista" style="display:grid;gap:12px;"></div>
   </div>
 
   <!-- MODAL RASTREIO -->
@@ -434,7 +441,59 @@ function ir(pagina) {
   if (pagina === "dashboard") carregarDashboard();
   if (pagina === "produtos")  carregarProdutos();
   if (pagina === "pedidos")   carregarPedidos();
+  if (pagina === "avaliacoes") carregarAvaliacoesAdmin();
   if (pagina === "horarios")  renderHorariosFull();
+}
+
+// ── AVALIAÇÕES (ADMIN) ────────────────────────────────────────────────────────
+async function carregarAvaliacoesAdmin() {
+  const el = document.getElementById("avaliacoes-lista");
+  el.innerHTML = '<div style="color:var(--muted);">Carregando...</div>';
+  try {
+    const r = await API("/api/admin/avaliacoes");
+    const d = await r.json();
+    if (!d.ok || !d.avaliacoes?.length) {
+      el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Nenhuma avaliação ainda.</div>';
+      return;
+    }
+    el.innerHTML = d.avaliacoes.map(a => {
+      const estrelas = "★".repeat(a.nota) + "☆".repeat(5-a.nota);
+      return `
+      <div style="background:var(--card);border:1px solid ${a.aprovado?'var(--border)':'var(--red)'};border-radius:12px;padding:16px;display:flex;gap:14px;">
+        ${a.foto ? `<img src="${a.foto}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;flex-shrink:0;"/>` : ''}
+        <div style="flex:1;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <strong style="font-size:14px;">${a.nome}</strong>
+            <span style="color:#f59e0b;">${estrelas}</span>
+          </div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">${a.texto||'(sem texto)'}</p>
+          <div style="display:flex;gap:8px;">
+            <button onclick="toggleAprovacao('${a.id}',${!a.aprovado})"
+              style="background:${a.aprovado?'var(--yellow)20':'var(--green)20'};color:${a.aprovado?'var(--yellow)':'var(--green)'};border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">
+              ${a.aprovado ? '👁️ Ocultar' : '✅ Aprovar'}
+            </button>
+            <button onclick="deletarAvaliacao('${a.id}')"
+              style="background:var(--red)20;color:var(--red);border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">
+              🗑️ Excluir
+            </button>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red);">Erro ao carregar.</div>';
+  }
+}
+
+async function toggleAprovacao(id, aprovado) {
+  const r = await API(`/api/admin/avaliacoes/${id}/aprovar`, {method:"POST", body:JSON.stringify({aprovado})});
+  if ((await r.json()).ok) { toast(aprovado?"Avaliação aprovada":"Avaliação ocultada"); carregarAvaliacoesAdmin(); }
+}
+
+async function deletarAvaliacao(id) {
+  if (!confirm("Excluir esta avaliação?")) return;
+  const r = await API(`/api/admin/avaliacoes/${id}`, {method:"DELETE"});
+  if ((await r.json()).ok) { toast("Avaliação excluída"); carregarAvaliacoesAdmin(); }
 }
 
 // ── RELÓGIO ───────────────────────────────────────────────────────────────────
