@@ -2,13 +2,13 @@ const USD_BRL = 5.70, TRAFEGO = 15, GATEWAY_PCT = 3.5, MARGEM_ALVO = 35;
 let _dadosCapturados = null;
 let _imgSelecionada  = "";
 
-// ── CARREGA CONFIG SALVA (com valores padrão) ─────────────────────────────────
-const DEFAULT_URL   = "https://web-production-ccdcc.up.railway.app";
-const DEFAULT_TOKEN = "eyJ1c2VyIjogImFkbWluIiwgImV4cCI6ICIyMDI2LTA2LTAxVDE1OjI0OjEyLjU4NjYwOCJ9.6a9a4af9e7fb664e9a4b6bd66f21f556aebb164b04ca78e361664a45d7e055c9";
+// ── CARREGA CONFIG SALVA ───────────────────────────────────────────────────────
+// URL padrão é só conveniência; o token NUNCA fica no código (segurança).
+const DEFAULT_URL = "https://web-production-ccdcc.up.railway.app";
 
 chrome.storage.local.get(["admin_url", "admin_token"], (cfg) => {
   document.getElementById("cfg-url").value   = cfg.admin_url   || DEFAULT_URL;
-  document.getElementById("cfg-token").value = cfg.admin_token || DEFAULT_TOKEN;
+  document.getElementById("cfg-token").value = cfg.admin_token || "";
 });
 
 // ── CAPTURAR ──────────────────────────────────────────────────────────────────

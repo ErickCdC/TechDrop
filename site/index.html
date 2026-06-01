@@ -5,6 +5,32 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>TechDrop Brasil — Tecnologia com Preço Justo</title>
   <meta name="description" content="Fones, powerbanks e acessórios tech com entrega em casa. Frete grátis hoje.">
+
+  <!-- ═══ PIXELS DE ANÚNCIOS (cole seu ID e descomente) ═══ -->
+  <!-- META (FACEBOOK/INSTAGRAM) PIXEL -->
+  <script>
+  /* Substitua SEU_PIXEL_ID e remova o // da linha fbq('init') para ativar.
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+  n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+  document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', 'SEU_PIXEL_ID');
+  fbq('track', 'PageView');
+  */
+  </script>
+  <!-- TIKTOK PIXEL -->
+  <script>
+  /* Substitua SEU_TIKTOK_ID para ativar.
+  !function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];
+  ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];
+  ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};
+  for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);
+  ttq.load('SEU_TIKTOK_ID');ttq.page();}(window,document,'ttq');
+  */
+  </script>
+  <!-- ═══════════════════════════════════════════════════ -->
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
@@ -346,7 +372,7 @@
       <input type="text" placeholder="Buscar produtos (fone, powerbank, carregador...)"/>
     </div>
     <div class="header-actions">
-      <a href="#">👤 Minha conta</a>
+      <a href="/minha-conta">👤 Minha conta</a>
       <button class="btn-cart" onclick="abrirCarrinho()">
         🛒 Carrinho <span class="cart-badge" id="cart-count">0</span>
       </button>
@@ -599,10 +625,18 @@
     <div class="discount-badge">CUPOM EXCLUSIVO</div>
     <h3 id="popup-titulo">Espera! Temos uma oferta para você</h3>
     <p id="popup-texto">Use o cupom <strong>TECHDROP10</strong> e ganhe 10% de desconto no seu primeiro pedido.</p>
-    <a href="#produtos" class="btn-popup" onclick="fecharPopup()">Usar cupom agora</a>
+    <a href="#produtos" class="btn-popup" onclick="ativarCupom()">Usar cupom agora</a>
     <span class="popup-skip" onclick="fecharPopup()">Não, prefiro pagar o preço cheio</span>
   </div>
 </div>
+
+<!-- BOTÃO WHATSAPP FLUTUANTE -->
+<a href="https://wa.me/5500000000000?text=Ol%C3%A1!%20Tenho%20uma%20d%C3%BavidA%20sobre%20um%20produto"
+   target="_blank" rel="noopener"
+   style="position:fixed;bottom:24px;right:24px;width:56px;height:56px;background:#25d366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:200;text-decoration:none;"
+   title="Fale conosco no WhatsApp">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.5-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.1-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.3 5.2 4.6.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.5-.3zM12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.4 1.3 4.9L2 22l5.3-1.4c1.4.8 3 1.2 4.7 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2z"/></svg>
+</a>
 
 <script>
 // ── GANCHOS POR HORÁRIO ──────────────────────────────
@@ -735,6 +769,11 @@ window.addEventListener("scroll",()=>{
   lastY=cur;
 });
 function fecharPopup(){document.getElementById("popup").classList.remove("show");}
+function ativarCupom(){
+  localStorage.setItem("cupom_pendente","TECHDROP10");
+  if(typeof toast==="function") toast("Cupom TECHDROP10 será aplicado no checkout!");
+  fecharPopup();
+}
 
 // ── CARREGA PRODUTOS DA API ───────────────────────────
 async function carregarProdutos() {

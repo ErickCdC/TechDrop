@@ -162,8 +162,21 @@
     <div class="resumo">
       <h2>Resumo do pedido</h2>
       <div id="itens-resumo"></div>
+
+      <!-- CUPOM -->
+      <div style="display:flex;gap:8px;margin:14px 0;">
+        <input type="text" id="cupom-input" placeholder="Cupom de desconto"
+          style="flex:1;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;text-transform:uppercase;outline:none;"/>
+        <button onclick="aplicarCupom()" id="btn-cupom"
+          style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;">
+          Aplicar
+        </button>
+      </div>
+      <div id="cupom-msg" style="font-size:12px;margin-bottom:8px;"></div>
+
       <div class="totais">
         <div class="total-row"><span>Subtotal</span><span id="subtotal">R$ 0,00</span></div>
+        <div class="total-row" id="linha-desconto" style="display:none;color:var(--green);"><span>Desconto</span><span id="desconto-val">- R$ 0,00</span></div>
         <div class="total-row"><span>Frete</span><span class="frete-gratis">Grátis</span></div>
         <div class="total-row destaque"><span>Total</span><span id="total">R$ 0,00</span></div>
       </div>
@@ -198,9 +211,53 @@ function renderResumo() {
     </div>`;
   }).join("");
   const fmt = v => "R$ " + v.toFixed(2).replace(".", ",");
+  _subtotal = total;
   document.getElementById("subtotal").textContent = fmt(total);
-  document.getElementById("total").textContent    = fmt(total);
+  document.getElementById("total").textContent    = fmt(total - _desconto);
+  if (_desconto > 0) {
+    document.getElementById("linha-desconto").style.display = "flex";
+    document.getElementById("desconto-val").textContent = "- " + fmt(_desconto);
+  }
 }
+
+// ── CUPOM ─────────────────────────────────────────────────────────────────────
+let _subtotal = 0, _desconto = 0, _cupomAplicado = "";
+
+async function aplicarCupom() {
+  const codigo = document.getElementById("cupom-input").value.trim().toUpperCase();
+  const msg = document.getElementById("cupom-msg");
+  if (!codigo) return;
+  try {
+    const r = await fetch("/api/cupom/validar", {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({codigo, subtotal: _subtotal}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      _desconto = d.desconto; _cupomAplicado = d.codigo;
+      msg.style.color = "#16a34a";
+      msg.textContent = `✅ Cupom ${d.codigo} aplicado: ${d.descricao}`;
+      renderResumo();
+    } else {
+      _desconto = 0; _cupomAplicado = "";
+      msg.style.color = "#dc2626";
+      msg.textContent = "❌ " + d.erro;
+      renderResumo();
+    }
+  } catch(e) {
+    msg.style.color = "#dc2626"; msg.textContent = "Erro ao validar cupom.";
+  }
+}
+
+// Aplica cupom vindo do popup (localStorage) automaticamente
+window.addEventListener("load", () => {
+  const cupomSalvo = localStorage.getItem("cupom_pendente");
+  if (cupomSalvo) {
+    document.getElementById("cupom-input").value = cupomSalvo;
+    aplicarCupom();
+    localStorage.removeItem("cupom_pendente");
+  }
+});
 
 function selecionarPagamento(metodo, el) {
   metodoPagamento = metodo;
@@ -244,6 +301,7 @@ async function finalizarPedido() {
   const payload = {
     itens: carrinho,
     metodo_pagamento: metodoPagamento,
+    cupom: _cupomAplicado,
     cliente: {
       nome,
       email,

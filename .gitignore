@@ -3,5 +3,10 @@ __pycache__/
 *.pyc
 dados/banco.json
 dados/pedidos/
+dados/disputas/
+dados/produtos.json
+dados/techdrop.db
+servidor/uploads/
 outputs/
+debug_ali.html
 *.egg-info/

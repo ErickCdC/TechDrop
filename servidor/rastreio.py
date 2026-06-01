@@ -82,25 +82,19 @@ def consultar_status(codigo: str) -> dict:
         return {"status": "erro", "descricao": str(e)}
 
 
-def verificar_todos_pedidos(pedidos_dir) -> list[dict]:
+def verificar_todos_pedidos(pedidos_dir=None) -> list[dict]:
     """
-    Verifica status de todos os pedidos em rastreio.
-    Retorna lista de pedidos com status atualizado.
-    Chamado automaticamente pelo agendador.
+    Verifica status de todos os pedidos em rastreio (lê do banco).
+    Retorna lista de pedidos com status atualizado. Chamado pelo agendador.
     """
-    import json
-    from pathlib import Path
+    try:
+        from servidor import db
+    except ImportError:
+        import db
 
     atualizados = []
-    pasta = Path(pedidos_dir)
-
-    for arq in pasta.glob("*.json"):
-        if arq.name == "fila_fulfillment.json":
-            continue
+    for pedido in db.listar("pedidos"):
         try:
-            with open(arq, encoding="utf-8") as f:
-                pedido = json.load(f)
-
             rastreio = pedido.get("rastreio", "")
             if not rastreio:
                 continue
@@ -108,12 +102,10 @@ def verificar_todos_pedidos(pedidos_dir) -> list[dict]:
             if status in ("entregue", "reembolsado", "cancelado"):
                 continue
 
-            # Consulta status atual
             info = consultar_status(rastreio)
             pedido["rastreio_info"] = info
             pedido["rastreio_checado_em"] = datetime.now().isoformat()
 
-            # Atualiza status se entregue
             if info.get("entregue") and status != "entregue":
                 pedido["status"] = "entregue"
                 pedido["entregue_em"] = datetime.now().isoformat()
@@ -121,10 +113,8 @@ def verificar_todos_pedidos(pedidos_dir) -> list[dict]:
             elif info.get("problema") and status not in ("problema", "disputa"):
                 atualizados.append({"pedido": pedido, "evento": "problema"})
 
-            with open(arq, "w", encoding="utf-8") as f:
-                json.dump(pedido, f, ensure_ascii=False, indent=2)
-
+            db.put("pedidos", pedido["id"], pedido)
         except Exception as e:
-            print(f"[RASTREIO] Erro ao verificar {arq.name}: {e}")
+            print(f"[RASTREIO] Erro ao verificar pedido: {e}")
 
     return atualizados

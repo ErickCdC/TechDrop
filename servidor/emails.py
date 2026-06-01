@@ -166,6 +166,55 @@ def notificar_entregue(pedido: dict):
     return _enviar(email, f"🎉 Pedido #{pid} entregue — {LOJA_NOME}", html)
 
 
+# ── CARRINHO ABANDONADO ───────────────────────────────────────────────────────
+
+def recuperar_carrinho(pedido: dict):
+    cliente = pedido.get("cliente", {})
+    email   = cliente.get("email", "")
+    nome    = cliente.get("nome", "").split()[0] if cliente.get("nome") else "Olá"
+    itens   = pedido.get("itens", [])
+    checkout_url = pedido.get("checkout_url", LOJA_URL)
+
+    if not email:
+        return False
+
+    itens_html = "".join(f"""
+    <tr>
+      <td style="padding:10px;border-bottom:1px solid #f3f4f6;">
+        <img src="{i.get('imagem','')}" width="48" height="48"
+             style="border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:10px;"/>
+        {i.get('titulo','—')}
+      </td>
+      <td style="padding:10px;border-bottom:1px solid #f3f4f6;text-align:right;">
+        <strong>R$ {i.get('preco_venda',0):.2f}</strong>
+      </td>
+    </tr>""" for i in itens)
+
+    html = _base(f"""
+    <h2 style="color:#111827;margin-bottom:8px;">{nome}, você esqueceu algo! 🛒</h2>
+    <p style="color:#6b7280;">Seus produtos ainda estão te esperando. Garanta antes que o estoque acabe!</p>
+
+    <table style="width:100%;border-collapse:collapse;margin:20px 0;">{itens_html}</table>
+
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px;margin-bottom:20px;text-align:center;">
+      <p style="margin:0;font-size:14px;color:#92400e;">
+        🎁 Use o cupom <strong style="font-size:16px;">VOLTA10</strong> e ganhe <strong>10% de desconto</strong>!
+      </p>
+    </div>
+
+    <p style="text-align:center;margin-bottom:20px;">
+      <a href="{checkout_url}" style="background:#2563eb;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:800;font-size:15px;">
+        Finalizar minha compra →
+      </a>
+    </p>
+
+    <p style="color:#9ca3af;font-size:12px;text-align:center;">
+      🔒 Compra 100% segura · 🚚 Frete grátis · ↩️ 7 dias de garantia
+    </p>""")
+
+    return _enviar(email, f"🛒 {nome}, seus produtos estão esperando — 10% OFF", html)
+
+
 # ── DISPUTA ABERTA ────────────────────────────────────────────────────────────
 
 def notificar_disputa_aberta(pedido: dict, motivo: str):

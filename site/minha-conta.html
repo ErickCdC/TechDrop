@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Minha Conta — TechDrop Brasil</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root{--accent:#2563eb;--accent-h:#1d4ed8;--green:#16a34a;--red:#dc2626;--yellow:#d97706;--bg:#f9fafb;--border:#e5e7eb;--muted:#6b7280;--text:#111827;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);font-family:'Inter',sans-serif;font-size:15px;color:var(--text);}
+    header{background:#fff;border-bottom:1px solid var(--border);padding:16px 5%;display:flex;align-items:center;justify-content:space-between;}
+    .logo{font-size:19px;font-weight:900;color:var(--accent);text-decoration:none;}
+    .header-links a{font-size:13px;color:var(--muted);text-decoration:none;margin-left:16px;}
+    .wrap{max-width:760px;margin:32px auto;padding:0 5%;}
+
+    /* AUTH */
+    .auth-box{background:#fff;border:1px solid var(--border);border-radius:16px;padding:36px;max-width:420px;margin:40px auto;}
+    .auth-tabs{display:flex;gap:8px;margin-bottom:24px;background:var(--bg);border-radius:10px;padding:4px;}
+    .auth-tab{flex:1;text-align:center;padding:10px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;color:var(--muted);border:none;background:none;}
+    .auth-tab.ativo{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+    .field{margin-bottom:14px;}
+    .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
+    .field input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:12px 14px;font-size:14px;font-family:inherit;outline:none;}
+    .field input:focus{border-color:var(--accent);}
+    .btn{width:100%;background:var(--accent);color:#fff;border:none;padding:13px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;margin-top:6px;}
+    .btn:hover{background:var(--accent-h);}
+    .erro{background:#fef2f2;border:1px solid #fecaca;color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;}
+    .erro.show{display:block;}
+
+    /* PAINEL LOGADO */
+    .conta-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+    .conta-header h1{font-size:22px;font-weight:900;}
+    .btn-sair{background:none;border:1px solid var(--border);color:var(--muted);padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;}
+
+    .pedido-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;}
+    .pedido-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+    .pedido-id{font-size:15px;font-weight:800;color:var(--accent);}
+    .pedido-data{font-size:12px;color:var(--muted);}
+    .status-pill{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;}
+    .st-pago{background:#dcfce7;color:var(--green);}
+    .st-transito{background:#dbeafe;color:var(--accent);}
+    .st-entregue{background:#dcfce7;color:var(--green);}
+    .st-aguardando{background:#fef3c7;color:var(--yellow);}
+    .st-problema{background:#fee2e2;color:var(--red);}
+
+    .pedido-itens{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+    .pedido-item{display:flex;align-items:center;gap:10px;font-size:13px;}
+    .pedido-item img{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);}
+
+    /* TIMELINE RASTREIO */
+    .rastreio-box{background:var(--bg);border-radius:10px;padding:16px;margin-top:12px;}
+    .rastreio-titulo{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px;}
+    .timeline{display:flex;align-items:center;gap:0;}
+    .tl-step{flex:1;text-align:center;position:relative;}
+    .tl-dot{width:24px;height:24px;border-radius:50%;background:var(--border);margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;}
+    .tl-dot.ativo{background:var(--accent);}
+    .tl-dot.feito{background:var(--green);}
+    .tl-step:not(:last-child)::after{content:"";position:absolute;top:12px;left:50%;width:100%;height:2px;background:var(--border);z-index:-1;}
+    .tl-label{font-size:11px;color:var(--muted);}
+    .rastreio-codigo{font-size:12px;color:var(--muted);margin-top:10px;text-align:center;}
+    .rastreio-codigo a{color:var(--accent);font-weight:600;}
+
+    .vazio{text-align:center;padding:48px 20px;color:var(--muted);}
+    .vazio a{color:var(--accent);font-weight:600;text-decoration:none;}
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/" class="logo">TechDrop</a>
+  <div class="header-links">
+    <a href="/">← Voltar à loja</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- NÃO LOGADO -->
+  <div id="auth" style="display:none;">
+    <div class="auth-box">
+      <div class="auth-tabs">
+        <button class="auth-tab ativo" id="tab-login" onclick="trocarTab('login')">Entrar</button>
+        <button class="auth-tab" id="tab-cadastro" onclick="trocarTab('cadastro')">Criar conta</button>
+      </div>
+      <div class="erro" id="auth-erro"></div>
+
+      <!-- LOGIN -->
+      <div id="form-login">
+        <div class="field"><label>E-mail</label><input type="email" id="login-email" placeholder="seu@email.com"/></div>
+        <div class="field"><label>Senha</label><input type="password" id="login-senha" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()"/></div>
+        <button class="btn" onclick="fazerLogin()">Entrar na minha conta</button>
+      </div>
+
+      <!-- CADASTRO -->
+      <div id="form-cadastro" style="display:none;">
+        <div class="field"><label>Nome completo</label><input type="text" id="cad-nome" placeholder="João da Silva"/></div>
+        <div class="field"><label>E-mail</label><input type="email" id="cad-email" placeholder="seu@email.com"/></div>
+        <div class="field"><label>Senha (mín. 6 caracteres)</label><input type="password" id="cad-senha" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerCadastro()"/></div>
+        <button class="btn" onclick="fazerCadastro()">Criar minha conta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGADO -->
+  <div id="painel" style="display:none;">
+    <div class="conta-header">
+      <h1>Olá, <span id="user-nome">cliente</span> 👋</h1>
+      <button class="btn-sair" onclick="sair()">Sair</button>
+    </div>
+    <h2 style="font-size:16px;font-weight:800;margin-bottom:16px;">Meus pedidos</h2>
+    <div id="pedidos-lista"></div>
+  </div>
+
+</div>
+
+<script>
+const API_BASE = "";
+let token = localStorage.getItem("user_token") || "";
+
+function api(url, opts={}) {
+  return fetch(API_BASE + url, {
+    ...opts,
+    headers: {"Content-Type":"application/json", "Authorization":"Bearer "+token, ...(opts.headers||{})},
+  });
+}
+
+function trocarTab(tab) {
+  document.getElementById("tab-login").classList.toggle("ativo", tab==="login");
+  document.getElementById("tab-cadastro").classList.toggle("ativo", tab==="cadastro");
+  document.getElementById("form-login").style.display    = tab==="login" ? "block" : "none";
+  document.getElementById("form-cadastro").style.display = tab==="cadastro" ? "block" : "none";
+  document.getElementById("auth-erro").classList.remove("show");
+}
+
+function mostrarErro(msg) {
+  const el = document.getElementById("auth-erro");
+  el.textContent = msg; el.classList.add("show");
+}
+
+async function fazerLogin() {
+  const email = document.getElementById("login-email").value.trim();
+  const senha = document.getElementById("login-senha").value;
+  if (!email || !senha) return mostrarErro("Preencha e-mail e senha.");
+  const r = await api("/api/conta/login", {method:"POST", body:JSON.stringify({email, senha})});
+  const d = await r.json();
+  if (d.ok) { token = d.token; localStorage.setItem("user_token", token); localStorage.setItem("user_nome", d.nome); carregarPainel(); }
+  else mostrarErro(d.erro);
+}
+
+async function fazerCadastro() {
+  const nome  = document.getElementById("cad-nome").value.trim();
+  const email = document.getElementById("cad-email").value.trim();
+  const senha = document.getElementById("cad-senha").value;
+  if (!nome || !email || !senha) return mostrarErro("Preencha todos os campos.");
+  const r = await api("/api/conta/cadastrar", {method:"POST", body:JSON.stringify({nome, email, senha})});
+  const d = await r.json();
+  if (d.ok) { token = d.token; localStorage.setItem("user_token", token); localStorage.setItem("user_nome", d.nome); carregarPainel(); }
+  else mostrarErro(d.erro);
+}
+
+function sair() {
+  localStorage.removeItem("user_token");
+  localStorage.removeItem("user_nome");
+  token = "";
+  document.getElementById("painel").style.display = "none";
+  document.getElementById("auth").style.display = "block";
+}
+
+const ETAPAS = ["Pago", "Em trânsito", "Entregue"];
+function statusInfo(p) {
+  const s = p.status;
+  const info = p.rastreio_info || {};
+  if (s === "entregue" || info.entregue) return {label:"Entregue", cls:"st-entregue", etapa:2};
+  if (info.status === "transito" || s === "comprado_aliexpress") return {label:"Em trânsito", cls:"st-transito", etapa:1};
+  if (["approved","pagamento_aprovado"].includes(s)) return {label:"Pagamento aprovado", cls:"st-pago", etapa:0};
+  if (s === "reembolsado") return {label:"Reembolsado", cls:"st-aguardando", etapa:0};
+  if (s === "disputa" || info.problema) return {label:"Em análise", cls:"st-problema", etapa:1};
+  return {label:"Aguardando pagamento", cls:"st-aguardando", etapa:0};
+}
+
+async function carregarPainel() {
+  document.getElementById("auth").style.display = "none";
+  document.getElementById("painel").style.display = "block";
+  document.getElementById("user-nome").textContent = localStorage.getItem("user_nome") || "cliente";
+
+  const r = await api("/api/conta/pedidos");
+  const d = await r.json();
+  const lista = document.getElementById("pedidos-lista");
+
+  if (!d.ok || !d.pedidos?.length) {
+    lista.innerHTML = `<div class="vazio">Você ainda não fez nenhum pedido.<br><a href="/">Ver produtos →</a></div>`;
+    return;
+  }
+
+  lista.innerHTML = d.pedidos.map(p => {
+    const st = statusInfo(p);
+    const itens = (p.itens||[]).map(i => `
+      <div class="pedido-item">
+        <img src="${i.imagem||''}" onerror="this.style.display='none'"/>
+        <span>${i.titulo} · Qtd ${i.quantidade||1}</span>
+      </div>`).join("");
+
+    const timeline = `
+      <div class="rastreio-box">
+        <div class="rastreio-titulo">Acompanhe seu pedido</div>
+        <div class="timeline">
+          ${ETAPAS.map((e,i) => `
+            <div class="tl-step">
+              <div class="tl-dot ${i<st.etapa?'feito':i===st.etapa?'ativo':''}">${i<st.etapa?'✓':i+1}</div>
+              <div class="tl-label">${e}</div>
+            </div>`).join("")}
+        </div>
+        ${p.rastreio ? `<div class="rastreio-codigo">Código: <a href="https://www.17track.net/pt-br?nums=${p.rastreio}" target="_blank">${p.rastreio}</a></div>` : ''}
+      </div>`;
+
+    return `
+    <div class="pedido-card">
+      <div class="pedido-top">
+        <div>
+          <div class="pedido-id">Pedido #${p.id}</div>
+          <div class="pedido-data">${(p.criado_em||'').slice(0,10).split('-').reverse().join('/')}</div>
+        </div>
+        <span class="status-pill ${st.cls}">${st.label}</span>
+      </div>
+      <div class="pedido-itens">${itens}</div>
+      <div style="font-size:14px;font-weight:700;">Total: R$ ${(p.total||0).toFixed(2).replace('.',',')}</div>
+      ${["approved","pagamento_aprovado","comprado_aliexpress","entregue"].includes(p.status)||p.rastreio ? timeline : ''}
+    </div>`;
+  }).join("");
+}
+
+// INIT
+if (token) carregarPainel();
+else document.getElementById("auth").style.display = "block";
+</script>
+</body>
+</html>

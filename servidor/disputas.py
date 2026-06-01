@@ -2,14 +2,15 @@
 Sistema de disputas e reembolso escalável.
 Segue o fluxo correto: cliente abre → aguarda AliExpress → reembolsa.
 """
-import os
-import json
 import uuid
 from datetime import datetime, timedelta
-from pathlib import Path
 
-DISPUTAS_DIR = Path(__file__).parent.parent / "dados" / "disputas"
-DISPUTAS_DIR.mkdir(exist_ok=True)
+try:
+    from servidor import db
+except ImportError:
+    import db
+
+COLECAO = "disputas"
 
 # Políticas de reembolso automático
 DIAS_SEM_ENTREGA_REEMBOLSO = 35  # reembolso automático se não entregou
@@ -60,21 +61,16 @@ def abrir_disputa(pedido_id: str, pedido: dict, motivo: str, descricao: str, evi
 
 
 def listar_disputas(status: str = None) -> list[dict]:
-    disputas = []
-    for arq in DISPUTAS_DIR.glob("*.json"):
-        with open(arq, encoding="utf-8") as f:
-            d = json.load(f)
-        if status is None or d.get("status") == status:
-            disputas.append(d)
-    return sorted(disputas, key=lambda x: x["aberta_em"], reverse=True)
+    disputas = db.listar(COLECAO)
+    if status:
+        disputas = [d for d in disputas if d.get("status") == status]
+    return sorted(disputas, key=lambda x: x.get("aberta_em", ""), reverse=True)
 
 
 def atualizar_disputa(disputa_id: str, acao: str, detalhe: str = "", novo_status: str = None) -> dict | None:
-    path = DISPUTAS_DIR / f"{disputa_id}.json"
-    if not path.exists():
+    disputa = db.get(COLECAO, disputa_id)
+    if not disputa:
         return None
-    with open(path, encoding="utf-8") as f:
-        disputa = json.load(f)
 
     disputa["historico"].append({
         "data":    datetime.now().isoformat(),
@@ -98,19 +94,14 @@ def aprovar_reembolso(disputa_id: str, valor: float = None) -> dict | None:
     )
 
 
-def verificar_reembolsos_automaticos(pedidos_dir: str) -> list[dict]:
+def verificar_reembolsos_automaticos(pedidos_dir=None) -> list[dict]:
     """
     Verifica pedidos que passaram do prazo e gera reembolso automático.
-    Chamado pelo agendador diariamente.
+    Chamado pelo agendador diariamente. Lê do banco.
     """
-    import glob
     candidatos = []
-    for arq in Path(pedidos_dir).glob("*.json"):
-        if arq.name == "fila_fulfillment.json":
-            continue
+    for pedido in db.listar("pedidos"):
         try:
-            with open(arq, encoding="utf-8") as f:
-                pedido = json.load(f)
             if pedido.get("status") not in ("comprado_aliexpress", "pagamento_aprovado", "approved"):
                 continue
             criado = datetime.fromisoformat(pedido.get("criado_em", datetime.now().isoformat()))
@@ -123,6 +114,4 @@ def verificar_reembolsos_automaticos(pedidos_dir: str) -> list[dict]:
 
 
 def _salvar_disputa(disputa: dict):
-    path = DISPUTAS_DIR / f"{disputa['id']}.json"
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(disputa, f, ensure_ascii=False, indent=2)
+    db.put(COLECAO, disputa["id"], disputa)

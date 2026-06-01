@@ -14,25 +14,33 @@ from flask_cors import CORS
 import httpx
 from dotenv import load_dotenv
 try:
+    from servidor import db
     from servidor.auth import login_required, verificar_credenciais
     from servidor import produtos_db
     from servidor.importador import importar_produto
     from servidor.emails import (confirmacao_pedido, notificar_rastreio,
-                                  notificar_entregue, notificar_disputa_aberta)
+                                  notificar_entregue, notificar_disputa_aberta,
+                                  recuperar_carrinho)
     from servidor.rastreio import registrar_rastreio, consultar_status, verificar_todos_pedidos
     from servidor.disputas import (abrir_disputa, listar_disputas,
                                     atualizar_disputa, aprovar_reembolso,
                                     verificar_reembolsos_automaticos)
+    from servidor import usuarios
+    from servidor import cupons
 except ImportError:
+    import db
     from auth import login_required, verificar_credenciais
     import produtos_db
     from importador import importar_produto
     from emails import (confirmacao_pedido, notificar_rastreio,
-                        notificar_entregue, notificar_disputa_aberta)
+                        notificar_entregue, notificar_disputa_aberta,
+                        recuperar_carrinho)
     from rastreio import registrar_rastreio, consultar_status, verificar_todos_pedidos
     from disputas import (abrir_disputa, listar_disputas,
                           atualizar_disputa, aprovar_reembolso,
                           verificar_reembolsos_automaticos)
+    import usuarios
+    import cupons
 
 load_dotenv()
 
@@ -67,11 +75,17 @@ def index():
 
 # ── CRIAR PREFERÊNCIA DE PAGAMENTO (MERCADO PAGO) ────────────────────────────
 
+@app.route("/api/cupom/validar", methods=["POST"])
+def validar_cupom():
+    d = request.json or {}
+    return jsonify(cupons.validar(d.get("codigo", ""), float(d.get("subtotal", 0))))
+
+
 @app.route("/api/checkout", methods=["POST"])
 def criar_checkout():
     """
     Recebe o carrinho e cria uma preferência de pagamento no Mercado Pago.
-    Retorna o link de checkout (Pix, cartão, boleto).
+    Valida preços no servidor (anti-fraude) e aplica cupom.
     """
     if not MP_ACCESS_TOKEN:
         return jsonify({"ok": False, "erro": "MP_ACCESS_TOKEN não configurado no .env"}), 400
@@ -79,25 +93,55 @@ def criar_checkout():
     body = request.json
     itens   = body.get("itens", [])
     cliente = body.get("cliente", {})
+    cupom_codigo = body.get("cupom", "")
 
     if not itens:
         return jsonify({"ok": False, "erro": "Carrinho vazio"}), 400
 
+    # ── ANTI-FRAUDE: revalida preços contra o banco ───────────────────────────
+    catalogo = {p["id"]: p for p in produtos_db.listar()}
+    for item in itens:
+        prod = catalogo.get(item.get("id"))
+        if prod:
+            # força o preço real do servidor, ignora o que veio do navegador
+            item["preco_venda"] = prod["preco_venda"]
+            item["titulo"]      = prod.get("titulo", item.get("titulo"))
+            item["link_aliexpress"] = prod.get("link_aliexpress", "")
+
+    subtotal = sum(i["preco_venda"] * i.get("quantidade", 1) for i in itens)
+
+    # ── CUPOM ──────────────────────────────────────────────────────────────────
+    desconto = 0
+    cupom_aplicado = None
+    if cupom_codigo:
+        res = cupons.validar(cupom_codigo, subtotal)
+        if res.get("ok"):
+            desconto = res["desconto"]
+            cupom_aplicado = res["codigo"]
+
     pedido_id = str(uuid.uuid4())[:8].upper()
 
-    # Monta preferência para o Mercado Pago
+    # Monta itens da preferência
+    mp_items = [
+        {
+            "id":          item["id"],
+            "title":       item["titulo"],
+            "quantity":    item.get("quantidade", 1),
+            "unit_price":  float(item["preco_venda"]),
+            "currency_id": "BRL",
+        }
+        for item in itens
+    ]
+    # Desconto entra como item negativo
+    if desconto > 0:
+        mp_items.append({
+            "id": "desconto", "title": f"Desconto ({cupom_aplicado})",
+            "quantity": 1, "unit_price": -float(desconto), "currency_id": "BRL",
+        })
+
     preference = {
         "external_reference": pedido_id,
-        "items": [
-            {
-                "id":          item["id"],
-                "title":       item["titulo"],
-                "quantity":    item.get("quantidade", 1),
-                "unit_price":  float(item["preco_venda"]),
-                "currency_id": "BRL",
-            }
-            for item in itens
-        ],
+        "items": mp_items,
         "payer": {
             "name":  cliente.get("nome", ""),
             "email": cliente.get("email", ""),
@@ -126,7 +170,7 @@ def criar_checkout():
 
     mp_data = resp.json()
 
-    # Salva pedido localmente
+    # Salva pedido no banco
     pedido = {
         "id":           pedido_id,
         "mp_id":        mp_data.get("id"),
@@ -134,10 +178,16 @@ def criar_checkout():
         "criado_em":    datetime.now().isoformat(),
         "cliente":      cliente,
         "itens":        itens,
-        "total":        sum(i["preco_venda"] * i.get("quantidade", 1) for i in itens),
+        "subtotal":     round(subtotal, 2),
+        "desconto":     desconto,
+        "cupom":        cupom_aplicado,
+        "total":        round(subtotal - desconto, 2),
         "checkout_url": mp_data.get("init_point"),
+        "email_recuperacao_enviado": False,
     }
     _salvar_pedido(pedido)
+    if cupom_aplicado:
+        cupons.registrar_uso(cupom_aplicado)
 
     return jsonify({
         "ok":           True,
@@ -149,11 +199,31 @@ def criar_checkout():
 
 # ── WEBHOOK MERCADO PAGO ──────────────────────────────────────────────────────
 
+def _validar_assinatura_mp(req, data_id: str) -> bool:
+    """
+    Valida a assinatura x-signature do Mercado Pago.
+    Se MP_WEBHOOK_SECRET não estiver configurado, pula (mas re-verificamos
+    o pagamento via API mesmo assim, então não é furo crítico).
+    """
+    if not MP_WEBHOOK_SECRET:
+        return True  # sem secret configurado — confia na reverificação via API
+    try:
+        sig = req.headers.get("x-signature", "")
+        req_id = req.headers.get("x-request-id", "")
+        partes = dict(p.strip().split("=", 1) for p in sig.split(",") if "=" in p)
+        ts, v1 = partes.get("ts", ""), partes.get("v1", "")
+        manifest = f"id:{data_id};request-id:{req_id};ts:{ts};"
+        esperado = hmac.new(MP_WEBHOOK_SECRET.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(esperado, v1)
+    except Exception:
+        return False
+
+
 @app.route("/api/webhook/mercadopago", methods=["POST"])
 def webhook_mp():
     """
     Recebe notificações do Mercado Pago.
-    Quando pagamento aprovado: registra pedido e dispara agente de fulfillment.
+    Valida assinatura + re-verifica o pagamento via API antes de aprovar.
     """
     data = request.json or {}
     tipo = data.get("type") or data.get("action", "")
@@ -165,6 +235,11 @@ def webhook_mp():
                   or data.get("id"))
     if not payment_id:
         return jsonify({"ok": True}), 200
+
+    # Validação de assinatura (defesa em profundidade)
+    if not _validar_assinatura_mp(request, str(payment_id)):
+        print(f"[WEBHOOK] Assinatura inválida para payment {payment_id}")
+        return jsonify({"ok": False, "erro": "assinatura inválida"}), 401
 
     # Consulta o pagamento no MP
     resp = httpx.get(
@@ -233,39 +308,63 @@ def _processar_pedido_aprovado(pedido: dict):
         })
 
     _salvar_pedido(pedido)
-
-    # Salva em fila de fulfillment
-    fila_path = PEDIDOS_DIR / "fila_fulfillment.json"
-    fila = []
-    if fila_path.exists():
-        with open(fila_path, encoding="utf-8") as f:
-            fila = json.load(f)
-    fila.append({"pedido_id": pedido["id"], "criado_em": datetime.now().isoformat()})
-    with open(fila_path, "w", encoding="utf-8") as f:
-        json.dump(fila, f, ensure_ascii=False, indent=2)
-
-    print(f"\n✅ PEDIDO APROVADO: {pedido['id']} — R$ {pedido['total']:.2f}")
-    print(f"   Cliente: {pedido['cliente'].get('nome', 'N/A')} | {pedido['cliente'].get('email', '')}")
-    for p in pedido["proximos_passos"]:
-        print(f"   → Comprar: {p['produto']}")
-        if p["link_ali"]:
-            print(f"     Link AliExpress: {p['link_ali']}")
+    print(f"[PEDIDO] Aprovado: {pedido['id']} - R$ {pedido.get('total',0):.2f}")
 
 
-# ── HELPERS ───────────────────────────────────────────────────────────────────
+# ── HELPERS (agora usam o banco de dados) ──────────────────────────────────────
 
 def _salvar_pedido(pedido: dict):
-    path = PEDIDOS_DIR / f"{pedido['id']}.json"
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(pedido, f, ensure_ascii=False, indent=2)
+    db.put("pedidos", pedido["id"], pedido)
 
 
 def _carregar_pedido(pedido_id: str) -> dict | None:
-    path = PEDIDOS_DIR / f"{pedido_id}.json"
-    if not path.exists():
-        return None
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    return db.get("pedidos", pedido_id)
+
+
+def _listar_pedidos() -> list[dict]:
+    pedidos = db.listar("pedidos")
+    return sorted(pedidos, key=lambda p: p.get("criado_em", ""), reverse=True)
+
+
+# ── CONTA DO COMPRADOR ─────────────────────────────────────────────────────────
+
+@app.route("/api/conta/cadastrar", methods=["POST"])
+def conta_cadastrar():
+    d = request.json or {}
+    r = usuarios.cadastrar(d.get("nome",""), d.get("email",""), d.get("senha",""))
+    code = 201 if r.get("ok") else 400
+    return jsonify(r), code
+
+@app.route("/api/conta/login", methods=["POST"])
+def conta_login():
+    d = request.json or {}
+    r = usuarios.login(d.get("email",""), d.get("senha",""))
+    return jsonify(r), (200 if r.get("ok") else 401)
+
+@app.route("/api/conta/me", methods=["GET"])
+def conta_me():
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    dados = usuarios.verificar_token(token)
+    if not dados:
+        return jsonify({"ok": False, "erro": "Não autenticado"}), 401
+    u = usuarios.obter(dados["email"])
+    return jsonify({"ok": True, "usuario": u})
+
+@app.route("/api/conta/pedidos", methods=["GET"])
+def conta_pedidos():
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    dados = usuarios.verificar_token(token)
+    if not dados:
+        return jsonify({"ok": False, "erro": "Não autenticado"}), 401
+    pedidos = usuarios.pedidos_do_usuario(dados["email"])
+    # Enriquece com status de rastreio
+    for p in pedidos:
+        if p.get("rastreio") and not p.get("rastreio_info"):
+            try:
+                p["rastreio_info"] = consultar_status(p["rastreio"])
+            except Exception:
+                pass
+    return jsonify({"ok": True, "pedidos": pedidos})
 
 
 # ── ADMIN AUTH ────────────────────────────────────────────────────────────────
@@ -498,17 +597,42 @@ def admin_atualizar_disputa(disputa_id):
     return jsonify({"ok": True, "disputa": disp})
 
 
-# ── AGENDADOR AUTOMÁTICO ───────────────────────────────────────────────────────
+# ── AGENDADOR AUTOMÁTICO (com eleição de líder p/ não duplicar entre workers) ──
 
-import threading, time as _time
+import threading, time as _time, uuid as _uuid
+from datetime import timedelta as _td
+
+_WORKER_ID = _uuid.uuid4().hex[:8]
+
+def _sou_lider() -> bool:
+    """
+    Eleição de líder via banco: só UM worker roda o agendador.
+    Evita e-mails duplicados quando há múltiplos workers do gunicorn.
+    """
+    try:
+        lock = db.get("_sistema", "scheduler_lock")
+        agora = datetime.utcnow()
+        if lock:
+            expira = datetime.fromisoformat(lock["expira"])
+            if lock["owner"] != _WORKER_ID and expira > agora:
+                return False  # outro worker é o líder e está ativo
+        # Assume/renova a liderança por 20 minutos
+        db.put("_sistema", "scheduler_lock", {
+            "owner":  _WORKER_ID,
+            "expira": (agora + _td(minutes=20)).isoformat(),
+        })
+        return True
+    except Exception:
+        return False
 
 def _job_rastreio():
-    """Verifica rastreios a cada 6h automaticamente."""
     while True:
         _time.sleep(6 * 3600)
+        if not _sou_lider():
+            continue
         try:
             print("[AGENDADOR] Verificando rastreios...")
-            atualizados = verificar_todos_pedidos(str(PEDIDOS_DIR))
+            atualizados = verificar_todos_pedidos()
             for item in atualizados:
                 pedido = item["pedido"]
                 if item["evento"] == "entregue":
@@ -519,42 +643,59 @@ def _job_rastreio():
             print(f"[AGENDADOR] Erro: {e}")
 
 def _job_reembolsos():
-    """Verifica reembolsos automáticos por prazo a cada 24h."""
     while True:
         _time.sleep(24 * 3600)
+        if not _sou_lider():
+            continue
         try:
             print("[AGENDADOR] Verificando reembolsos automáticos...")
-            candidatos = verificar_reembolsos_automaticos(str(PEDIDOS_DIR))
-            for c in candidatos:
+            for c in verificar_reembolsos_automaticos():
                 pedido = c["pedido"]
                 disputa = abrir_disputa(
-                    pedido["id"], pedido,
-                    "nao_recebido",
-                    f"Reembolso automático — pedido não entregue após {c['dias']} dias"
-                )
+                    pedido["id"], pedido, "nao_recebido",
+                    f"Reembolso automático — pedido não entregue após {c['dias']} dias")
                 pedido["disputa_aberta"] = disputa["id"]
                 pedido["status"] = "disputa"
                 _salvar_pedido(pedido)
                 notificar_disputa_aberta(pedido, "Prazo de entrega excedido")
-                print(f"[AGENDADOR] Disputa automática aberta para pedido #{pedido['id']}")
+                print(f"[AGENDADOR] Disputa automática para #{pedido['id']}")
         except Exception as e:
             print(f"[AGENDADOR] Erro reembolsos: {e}")
 
-# Inicia threads em background ao subir o servidor
-threading.Thread(target=_job_rastreio,    daemon=True).start()
-threading.Thread(target=_job_reembolsos,  daemon=True).start()
+def _job_carrinho_abandonado():
+    """Envia e-mail de recuperação 1h após checkout não finalizado."""
+    while True:
+        _time.sleep(30 * 60)  # checa a cada 30min
+        if not _sou_lider():
+            continue
+        try:
+            agora = datetime.now()
+            for pedido in db.listar("pedidos"):
+                if pedido.get("status") != "aguardando_pagamento":
+                    continue
+                if pedido.get("email_recuperacao_enviado"):
+                    continue
+                if not pedido.get("cliente", {}).get("email"):
+                    continue
+                criado = datetime.fromisoformat(pedido.get("criado_em", agora.isoformat()))
+                horas = (agora - criado).total_seconds() / 3600
+                if 1 <= horas <= 48:  # entre 1h e 48h
+                    recuperar_carrinho(pedido)
+                    pedido["email_recuperacao_enviado"] = True
+                    _salvar_pedido(pedido)
+                    print(f"[CARRINHO] Recuperação enviada para #{pedido['id']}")
+        except Exception as e:
+            print(f"[CARRINHO] Erro: {e}")
+
+threading.Thread(target=_job_rastreio,            daemon=True).start()
+threading.Thread(target=_job_reembolsos,          daemon=True).start()
+threading.Thread(target=_job_carrinho_abandonado, daemon=True).start()
 
 
 @app.route("/api/admin/pedidos", methods=["GET"])
 @login_required
 def admin_listar_pedidos():
-    pedidos = []
-    for arq in sorted(PEDIDOS_DIR.glob("*.json"), reverse=True)[:50]:
-        if arq.name == "fila_fulfillment.json":
-            continue
-        with open(arq, encoding="utf-8") as f:
-            pedidos.append(json.load(f))
-    return jsonify({"ok": True, "pedidos": pedidos})
+    return jsonify({"ok": True, "pedidos": _listar_pedidos()[:50]})
 
 
 # ── ADMIN MÉTRICAS ─────────────────────────────────────────────────────────────
@@ -562,14 +703,9 @@ def admin_listar_pedidos():
 @app.route("/api/admin/metricas", methods=["GET"])
 @login_required
 def admin_metricas():
-    pedidos = []
-    for arq in PEDIDOS_DIR.glob("*.json"):
-        if arq.name == "fila_fulfillment.json":
-            continue
-        with open(arq, encoding="utf-8") as f:
-            pedidos.append(json.load(f))
+    pedidos = _listar_pedidos()
 
-    aprovados   = [p for p in pedidos if p.get("status") == "approved"]
+    aprovados   = [p for p in pedidos if p.get("status") in ("approved", "pagamento_aprovado", "comprado_aliexpress", "entregue")]
     receita     = sum(p.get("total", 0) for p in aprovados)
     ticket_med  = receita / len(aprovados) if aprovados else 0
 
@@ -612,6 +748,11 @@ def admin_panel():
 @app.route("/admin-panel/login")
 def admin_login_page():
     return send_from_directory(app.static_folder, "admin-login.html")
+
+@app.route("/minha-conta")
+@app.route("/minha-conta.html")
+def minha_conta_page():
+    return send_from_directory(app.static_folder, "minha-conta.html")
 
 
 if __name__ == "__main__":

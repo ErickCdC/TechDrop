@@ -10,10 +10,23 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify
 
-ADMIN_USER   = os.getenv("ADMIN_USER",     "admin")
-ADMIN_PASS   = os.getenv("ADMIN_PASS",     "techdrop2026")
-JWT_SECRET   = os.getenv("JWT_SECRET",     "techdrop-secret-mude-isso")
+ADMIN_USER   = os.getenv("ADMIN_USER", "admin")
+ADMIN_PASS   = os.getenv("ADMIN_PASS", "")
 TOKEN_HORAS  = int(os.getenv("TOKEN_HORAS", "720"))  # 30 dias
+
+# JWT_SECRET: se não definido, deriva de ADMIN_PASS (estável entre workers e
+# não-público). Evita o secret fixo que estava no repositório.
+_jwt_env = os.getenv("JWT_SECRET", "")
+if _jwt_env:
+    JWT_SECRET = _jwt_env
+elif ADMIN_PASS:
+    JWT_SECRET = hashlib.sha256(f"jwt::{ADMIN_USER}::{ADMIN_PASS}".encode()).hexdigest()
+else:
+    JWT_SECRET = "DEV-INSEGURO-defina-ADMIN_PASS"
+
+if not ADMIN_PASS:
+    print("[AUTH] ⚠️  ADMIN_PASS não definido! Defina a variável de ambiente "
+          "ADMIN_PASS no Railway para proteger o painel admin.")
 
 
 def _hash_senha(senha: str) -> str:
@@ -57,6 +70,8 @@ def login_required(f):
 
 def verificar_credenciais(user: str, senha: str) -> str | None:
     """Verifica login e retorna token se correto."""
-    if user == ADMIN_USER and _hash_senha(senha) == _hash_senha(ADMIN_PASS):
+    if not ADMIN_PASS:
+        return None  # bloqueia login enquanto senha não for configurada
+    if user == ADMIN_USER and hmac.compare_digest(_hash_senha(senha), _hash_senha(ADMIN_PASS)):
         return _criar_token(user)
     return None
