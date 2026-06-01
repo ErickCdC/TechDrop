@@ -76,31 +76,84 @@ async function extrairDadosPagina() {
     }
   }
 
-  // PREÇO ATUAL
-  const precoSeletores = [
-    ".product-price-value",
-    "[class*='price--current']",
-    "[class*='price_current']",
-    ".pdp-comp-price-current",
-    "[class*='uniform-banner-box-price']",
-    "[class*='product-price-current']",
-  ];
-  for (const sel of precoSeletores) {
-    const el = document.querySelector(sel);
-    if (el) {
-      const txt = el.textContent.replace(/[^\d,]/g, "").replace(",", ".");
-      const val = parseFloat(txt);
-      if (val > 0) { resultado.preco_brl = val; break; }
+  // ── FONTE PRINCIPAL: JSON embutido (runParams.data) ────────────────────────
+  // O AliExpress guarda preço, variantes e imagens num objeto JSON na página.
+  let DATA = null;
+  try {
+    if (window.runParams && window.runParams.data) DATA = window.runParams.data;
+  } catch (e) {}
+  if (!DATA) {
+    // Procura nos scripts por window.runParams = {...}
+    for (const s of document.scripts) {
+      const t = s.textContent || "";
+      if (t.includes("runParams") && t.includes("priceModule")) {
+        const m = t.match(/data:\s*(\{.+?\}),\s*csrfToken/s) ||
+                  t.match(/window\.runParams\s*=\s*(\{.+?\});/s);
+        if (m) { try { DATA = JSON.parse(m[1]); } catch (e) {} }
+        if (DATA) break;
+      }
     }
   }
 
-  // PREÇO ORIGINAL (riscado)
-  const precoOrigSel = document.querySelector(
-    "[class*='price--del'], [class*='price-del'], .product-price-original, [class*='price--lineThrough']"
-  );
-  if (precoOrigSel) {
-    const txt = precoOrigSel.textContent.replace(/[^\d,]/g, "").replace(",", ".");
-    resultado.preco_original_brl = parseFloat(txt) || 0;
+  function num(x) {
+    if (x == null) return 0;
+    if (typeof x === "number") return x;
+    const v = parseFloat(String(x).replace(/[^\d.,]/g, "").replace(/\.(?=\d{3})/g, "").replace(",", "."));
+    return isNaN(v) ? 0 : v;
+  }
+
+  if (DATA) {
+    // Título
+    const tm = DATA.titleModule || DATA.productInfoComponent || {};
+    if (tm.subject && tm.subject.length > 5) resultado.titulo = tm.subject;
+
+    // Preço (priceModule)
+    const pm = DATA.priceModule || {};
+    const cur = pm.minActivityAmount || pm.minAmount || pm.maxActivityAmount || pm.maxAmount || {};
+    resultado.preco_brl = num(cur.value || cur.formatedAmount || pm.formatedActivityPrice || pm.formatedPrice);
+    const orig = pm.maxAmount || pm.minAmount || {};
+    resultado.preco_original_brl = num(orig.value || pm.formatedPrice) || 0;
+
+    // Imagens (imageModule)
+    const im = DATA.imageModule || {};
+    (im.imagePathList || []).forEach(u => addImg(u));
+
+    // Variantes (skuModule) — Cor, Tamanho, Capacidade etc.
+    const sm = DATA.skuModule || {};
+    (sm.productSKUPropertyList || []).forEach(prop => {
+      const nome = (prop.skuPropertyName || "").trim();
+      const opcoes = (prop.skuPropertyValues || []).map(v => {
+        let img = v.skuPropertyImagePath || "";
+        if (img && img.startsWith("//")) img = "https:" + img;
+        return { label: (v.propertyValueDisplayName || v.propertyValueName || "").trim(), img };
+      }).filter(o => o.label);
+      if (nome && opcoes.length) resultado.variantes.push({ nome, opcoes: opcoes.slice(0, 30) });
+    });
+
+    // Vídeo
+    const vm = DATA.videoModule || {};
+    if (vm.mp4Url) resultado.video = vm.mp4Url.startsWith("//") ? "https:" + vm.mp4Url : vm.mp4Url;
+
+    // Avaliação média e total
+    const fm = DATA.titleModule || {};
+    if (fm.feedbackRating) {
+      resultado.avaliacao = fm.feedbackRating.averageStar || "";
+      resultado.vendas = (fm.feedbackRating.totalValidNum || "") + " avaliações";
+    }
+  }
+
+  // PREÇO via DOM (fallback se JSON não trouxe)
+  if (!resultado.preco_brl) {
+    for (const sel of [".product-price-value","[class*='price--current']","[class*='price_current']",
+                       ".pdp-comp-price-current","[class*='uniform-banner-box-price']",
+                       "[class*='product-price-current']","[class*='es--wrap']"]) {
+      const el = document.querySelector(sel);
+      if (el) { const v = num(el.textContent); if (v > 0) { resultado.preco_brl = v; break; } }
+    }
+  }
+  if (!resultado.preco_original_brl) {
+    const o = document.querySelector("[class*='price--del'], [class*='price-del'], [class*='price--lineThrough']");
+    if (o) resultado.preco_original_brl = num(o.textContent);
   }
 
   // IMAGENS — múltiplas estratégias
@@ -164,8 +217,8 @@ async function extrairDadosPagina() {
 
   resultado.imagens = resultado.imagens.slice(0, 10);
 
-  // VARIANTES
-  try {
+  // VARIANTES via DOM (fallback se o JSON não trouxe)
+  if (resultado.variantes.length === 0) try {
     const gruposVariante = document.querySelectorAll([
       "[class*='sku-item--property']",
       "[class*='product-prop']",
@@ -200,39 +253,45 @@ async function extrairDadosPagina() {
   if (vendasEl) resultado.vendas = vendasEl.textContent.trim();
 
   // ── REVIEWS REAIS (API de feedback do AliExpress) ──────────────────────────
+  // Busca TODAS as avaliações: várias páginas, filtro "all" primeiro.
   if (resultado.pid) {
-    try {
-      // Busca 2 páginas: primeiro as com foto, depois gerais
-      const consultas = [
-        `https://feedback.aliexpress.com/pc/searchEvaluation.do?productId=${resultado.pid}&lang=pt_BR&country=BR&page=1&pageSize=20&filter=image&sort=complex_default`,
-        `https://feedback.aliexpress.com/pc/searchEvaluation.do?productId=${resultado.pid}&lang=pt_BR&country=BR&page=1&pageSize=20&filter=all&sort=complex_default`,
-      ];
-      const vistos = new Set();
-      for (const url of consultas) {
+    const vistos = new Set();
+    function addReview(ev) {
+      const texto = (ev.buyerTranslationFeedback || ev.buyerFeedback || ev.feedback || "").trim();
+      const fotos = (ev.images || ev.thumbnails || []).map(i => {
+        const u = typeof i === "string" ? i : (i.url || i.image || "");
+        return u.startsWith("//") ? "https:" + u : u;
+      }).filter(Boolean);
+      const chave = (ev.buyerName || ev.name || "") + texto.slice(0, 30);
+      if (vistos.has(chave)) return;
+      if (!texto && fotos.length === 0) return;
+      vistos.add(chave);
+      const evalNum = ev.buyerEval || ev.rating || ev.star || 100;
+      resultado.reviews.push({
+        nome:  ev.buyerName || ev.name || "Cliente AliExpress",
+        pais:  ev.buyerCountry || ev.country || "",
+        nota:  evalNum > 5 ? Math.round(evalNum / 20) : Math.round(evalNum),
+        texto, fotos,
+        data:  ev.evalDate || ev.evaDate || ev.date || "",
+      });
+    }
+
+    // Tenta várias páginas com filtro geral
+    for (let page = 1; page <= 5; page++) {
+      let achou = false;
+      for (const filtro of ["all", "image"]) {
+        const url = `https://feedback.aliexpress.com/pc/searchEvaluation.do?productId=${resultado.pid}&lang=pt_BR&country=BR&page=${page}&pageSize=20&filter=${filtro}&sort=complex_default`;
         try {
           const resp = await fetch(url, { credentials: "include" });
           const json = await resp.json();
-          const lista = (json.data && json.data.evaViewList) || json.evaViewList || [];
-          for (const ev of lista) {
-            const texto = (ev.buyerTranslationFeedback || ev.buyerFeedback || "").trim();
-            const chave = (ev.buyerName || "") + texto.slice(0, 30);
-            if (vistos.has(chave)) continue;
-            vistos.add(chave);
-            const fotos = (ev.images || []).map(i => (i.startsWith("//") ? "https:" + i : i));
-            if (!texto && fotos.length === 0) continue;
-            resultado.reviews.push({
-              nome:  ev.buyerName || "Cliente AliExpress",
-              pais:  ev.buyerCountry || "",
-              nota:  Math.round((ev.buyerEval || 100) / 20),  // 100 -> 5 estrelas
-              texto: texto,
-              fotos: fotos,
-              data:  ev.evalDate || ev.evaDate || "",
-            });
-          }
+          const lista = (json.data && json.data.evaViewList) || json.evaViewList ||
+                        (json.data && json.data.evaluationList) || [];
+          if (lista.length) { achou = true; lista.forEach(addReview); }
         } catch (e) {}
-        if (resultado.reviews.length >= 25) break;
       }
-    } catch (e) {}
+      if (!achou) break;             // sem mais páginas
+      if (resultado.reviews.length >= 40) break;
+    }
   }
 
   return resultado;
@@ -350,6 +409,10 @@ async function enviarParaPainel() {
       },
       body: JSON.stringify(produto),
     });
+    if (resp.status === 401) {
+      alert("Token admin inválido ou expirado.\n\nGere um novo token: faça login no painel, abra o Console (F12) e digite localStorage.getItem('admin_token')");
+      return;
+    }
     const data = await resp.json();
     if (data.ok) {
       // Importa as avaliações reais para o produto recém-criado
