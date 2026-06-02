@@ -71,10 +71,7 @@ MP_HEADERS = {
 
 
 # ── SITE ESTÁTICO ─────────────────────────────────────────────────────────────
-
-@app.route("/")
-def index():
-    return send_from_directory(app.static_folder, "index.html")
+# (a rota "/" é tratada em oauth_aliexpress, que serve o index ou captura o code)
 
 
 # ── CARRINHO ──────────────────────────────────────────────────────────────────
@@ -373,6 +370,27 @@ def _processar_pedido_aprovado(pedido: dict):
             "instrucao":    f"Comprar no AliExpress e enviar para o endereço do cliente.",
             "status":       "pendente_compra",
         })
+
+    # ── FULFILLMENT AUTOMÁTICO via AliExpress DS API ──────────────────────────
+    try:
+        from servidor import fornecedor
+    except ImportError:
+        import fornecedor
+    try:
+        res = fornecedor.criar_pedido_automatico(pedido)
+        if res.get("ok"):
+            pedido["status"] = "comprado_aliexpress"
+            pedido["ali_order_id"] = res.get("ali_order_id", "")
+            pedido["fulfillment"] = "automatico"
+            pedido["comprado_em"] = datetime.now().isoformat()
+            print(f"[FULFILLMENT] AUTOMÁTICO ✓ Pedido {pedido['id']} -> AliExpress {res.get('ali_order_id')}")
+        else:
+            pedido["fulfillment"] = "manual"
+            pedido["fulfillment_motivo"] = res.get("motivo", "")
+            print(f"[FULFILLMENT] Manual: {res.get('motivo')}")
+    except Exception as e:
+        pedido["fulfillment"] = "manual"
+        print(f"[FULFILLMENT] Erro: {e}")
 
     _salvar_pedido(pedido)
     print(f"[PEDIDO] Aprovado: {pedido['id']} - R$ {pedido.get('total',0):.2f}")
@@ -950,6 +968,47 @@ def admin_metricas():
 
 
 # ── PRODUTOS PÚBLICO ───────────────────────────────────────────────────────────
+
+@app.route("/")
+@app.route("/oauth/aliexpress/callback")
+def oauth_aliexpress():
+    """
+    Recebe o code do AliExpress e troca pelo access_token automaticamente.
+    Se não houver code, serve a loja normalmente.
+    """
+    code = request.args.get("code", "")
+    if not code:
+        return send_from_directory(app.static_folder, "index.html")
+    try:
+        from servidor import fornecedor
+    except ImportError:
+        import fornecedor
+    res = fornecedor.trocar_code_por_token(code)
+    if res.get("ok"):
+        return f"""<html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#f0fdf4;">
+        <h1 style="color:#16a34a;">✅ AliExpress conectado!</h1>
+        <p>Conta: <strong>{res.get('account','')}</strong></p>
+        <p>A automação de pedidos está ATIVA. Agora cada venda paga é comprada
+        automaticamente no AliExpress com o endereço do cliente.</p>
+        <a href="/admin-panel/" style="background:#2563eb;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;">Ir para o painel</a>
+        </body></html>"""
+    return f"""<html><body style="font-family:sans-serif;text-align:center;padding:60px;">
+        <h1 style="color:#dc2626;">Erro ao conectar</h1>
+        <p>{res.get('erro','')}</p>
+        <p>Verifique se ALIEXPRESS_APP_KEY e ALIEXPRESS_APP_SECRET estão no Railway.</p>
+        </body></html>""", 400
+
+
+@app.route("/api/admin/aliexpress/status", methods=["GET"])
+@login_required
+def admin_aliexpress_status():
+    try:
+        from servidor import fornecedor
+    except ImportError:
+        import fornecedor
+    return jsonify({"ok": True, "ativo": fornecedor.automacao_ativa(),
+                    "token": bool(fornecedor.get_token())})
+
 
 @app.route("/api/status-db", methods=["GET"])
 def status_db():
