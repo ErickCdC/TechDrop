@@ -1183,8 +1183,8 @@ function renderPedidosCards(pedidos) {
       <!-- Cliente -->
       <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <div><span style="color:var(--muted);">Cliente:</span> <strong>${p.cliente?.nome||"—"}</strong></div>
-          <div><span style="color:var(--muted);">E-mail:</span> ${p.cliente?.email||"—"}</div>
+          <div><span style="color:var(--muted);">Cliente:</span> <strong>${p.cliente?.nome||"—"}</strong>${p.usuario_email?' <span style="background:var(--green)20;color:var(--green);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;">👤 conta</span>':''}</div>
+          <div><span style="color:var(--muted);">E-mail:</span> ${p.cliente?.email||p.usuario_email||"—"}</div>
           <div><span style="color:var(--muted);">Tel:</span> ${p.cliente?.telefone||"—"}</div>
           <div><span style="color:var(--muted);">Total:</span> <strong style="color:var(--green);">R$ ${(p.total||0).toFixed(2).replace(".",",")}</strong></div>
         </div>

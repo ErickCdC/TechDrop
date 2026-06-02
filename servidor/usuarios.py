@@ -136,8 +136,9 @@ def marcar_avaliou(email: str, produto_id: str):
 
 
 def pedidos_do_usuario(email: str) -> list[dict]:
-    """Retorna os pedidos vinculados ao e-mail do comprador."""
+    """Retorna os pedidos vinculados à conta (por usuario_email ou email do cliente)."""
     email = email.lower().strip()
     pedidos = [p for p in db.listar("pedidos")
-               if (p.get("cliente", {}).get("email", "") or "").lower() == email]
+               if (p.get("usuario_email", "") or "").lower() == email
+               or (p.get("cliente", {}).get("email", "") or "").lower() == email]
     return sorted(pedidos, key=lambda p: p.get("criado_em", ""), reverse=True)

@@ -235,12 +235,13 @@ def criar_checkout():
 
     mp_data = resp.json()
 
-    # Salva pedido no banco
+    # Salva pedido no banco — VINCULADO à conta do usuário
     pedido = {
         "id":           pedido_id,
         "mp_id":        mp_data.get("id"),
         "status":       "aguardando_pagamento",
         "criado_em":    datetime.now().isoformat(),
+        "usuario_email": (_user or {}).get("email", "") or cliente.get("email", ""),
         "cliente":      cliente,
         "itens":        itens,
         "subtotal":     round(subtotal, 2),
