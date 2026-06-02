@@ -95,6 +95,13 @@
   <div>
     <div class="form-box">
       <h2>📦 Endereço de entrega</h2>
+
+      <!-- ENDEREÇOS SALVOS -->
+      <div id="enderecos-salvos" style="display:none;margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Endereços salvos</div>
+        <div id="enderecos-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+
       <div class="form-row">
         <div class="field"><label>Nome completo</label><input type="text" id="nome" placeholder="João da Silva" required/></div>
         <div class="field"><label>E-mail</label><input type="email" id="email" placeholder="joao@email.com" required/></div>
@@ -128,6 +135,15 @@
       <div class="form-row">
         <div class="field"><label>Número</label><input type="text" id="numero" placeholder="123"/></div>
         <div class="field"><label>Complemento</label><input type="text" id="complemento" placeholder="Apto 4 (opcional)"/></div>
+      </div>
+
+      <!-- SALVAR ENDEREÇO -->
+      <div id="salvar-endereco-box" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:4px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="salvar-endereco" style="width:auto;"/>
+          Salvar este endereço na minha conta
+        </label>
+        <input type="text" id="apelido-endereco" placeholder="Nome (ex: Casa, Trabalho)" style="margin-top:8px;display:none;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;width:100%;"/>
       </div>
 
       <div class="section-sep">Pagamento</div>
@@ -209,9 +225,36 @@
         if(n && !n.value) n.value = d.usuario.nome || "";
         if(e && !e.value) e.value = d.usuario.email || "";
       }
+      document.getElementById("salvar-endereco-box").style.display = "block";
+      carregarEnderecos();
     }
   }catch(e){}
 })();
+
+// ── ENDEREÇOS SALVOS ──────────────────────────────────────────────────────────
+async function carregarEnderecos(){
+  try{
+    const tok = localStorage.getItem("user_token");
+    const r = await fetch("/api/conta/enderecos",{headers:{"Authorization":"Bearer "+tok}});
+    const d = await r.json();
+    if(!d.ok || !d.enderecos.length) return;
+    document.getElementById("enderecos-salvos").style.display = "block";
+    document.getElementById("enderecos-chips").innerHTML = d.enderecos.map((e,i)=>`
+      <button type="button" onclick='preencherEndereco(${JSON.stringify(e).replace(/'/g,"&#39;")})'
+        style="background:${e.principal?'#eff6ff':'#fff'};border:1.5px solid ${e.principal?'var(--accent)':'var(--border)'};color:${e.principal?'var(--accent)':'var(--text)'};padding:8px 14px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">
+        📍 ${e.apelido}
+      </button>`).join("");
+    // Preenche o principal automaticamente
+    const principal = d.enderecos.find(e=>e.principal) || d.enderecos[0];
+    if(principal) preencherEndereco(principal);
+  }catch(e){}
+}
+function preencherEndereco(e){
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||"";};
+  set("nome",e.nome); set("cpf",e.cpf); set("tel",e.telefone); set("cep",e.cep);
+  set("estado",e.estado); set("cidade",e.cidade); set("bairro",e.bairro);
+  set("rua",e.rua); set("numero",e.numero); set("complemento",e.complemento);
+}
 
 // ── CARRINHO (lido do localStorage) ──────────────────────────────────────────
 const carrinho = JSON.parse(localStorage.getItem("carrinho") || "[]");
@@ -325,6 +368,27 @@ async function finalizarPedido() {
   btn.disabled = true;
   document.getElementById("loading").classList.add("show");
 
+  // Salva o endereço na conta, se marcado
+  const tok = localStorage.getItem("user_token");
+  if (tok && document.getElementById("salvar-endereco")?.checked) {
+    const apelido = document.getElementById("apelido-endereco").value.trim() || "Meu endereço";
+    try {
+      await fetch("/api/conta/enderecos", {
+        method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},
+        body: JSON.stringify({
+          apelido, nome, cpf,
+          telefone: document.getElementById("tel").value,
+          cep: document.getElementById("cep").value, rua,
+          numero: document.getElementById("numero").value,
+          complemento: document.getElementById("complemento").value,
+          bairro: document.getElementById("bairro").value, cidade,
+          estado: document.getElementById("estado").value,
+        }),
+      });
+    } catch(e){}
+  }
+
   const payload = {
     itens: carrinho,
     cupom: _cupomAplicado,
@@ -403,6 +467,11 @@ document.getElementById("cpf").addEventListener("input", function() {
 });
 
 renderResumo();
+
+// Toggle do campo de apelido ao marcar "salvar endereço"
+document.getElementById("salvar-endereco")?.addEventListener("change", function(){
+  document.getElementById("apelido-endereco").style.display = this.checked ? "block" : "none";
+});
 
 // ── SUGESTÕES DE PRODUTOS (upsell) ────────────────────────────────────────────
 async function carregarUpsell(){

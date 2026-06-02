@@ -123,6 +123,34 @@
       <h1>Olá, <span id="user-nome">cliente</span> 👋</h1>
       <a href="/" class="btn-continuar">← Continuar comprando</a>
     </div>
+    <!-- ENDEREÇOS -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h2 style="font-size:16px;font-weight:800;">Meus endereços</h2>
+      <button onclick="abrirFormEndereco()" style="background:var(--accent)15;color:var(--accent);border:none;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">+ Adicionar</button>
+    </div>
+    <div id="enderecos-lista" style="margin-bottom:14px;"></div>
+
+    <!-- FORM NOVO ENDEREÇO -->
+    <div id="form-endereco" style="display:none;background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:24px;">
+      <div class="field"><label>Apelido</label><input type="text" id="e-apelido" placeholder="Casa, Trabalho..."/></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="field"><label>Nome do destinatário</label><input type="text" id="e-nome"/></div>
+        <div class="field"><label>CPF</label><input type="text" id="e-cpf" maxlength="14"/></div>
+        <div class="field"><label>Telefone</label><input type="text" id="e-tel"/></div>
+        <div class="field"><label>CEP</label><input type="text" id="e-cep" maxlength="9"/></div>
+        <div class="field"><label>Cidade</label><input type="text" id="e-cidade"/></div>
+        <div class="field"><label>Estado</label><input type="text" id="e-estado" maxlength="2" placeholder="SP"/></div>
+        <div class="field"><label>Bairro</label><input type="text" id="e-bairro"/></div>
+        <div class="field"><label>Número</label><input type="text" id="e-numero"/></div>
+      </div>
+      <div class="field"><label>Endereço (rua)</label><input type="text" id="e-rua"/></div>
+      <div class="field"><label>Complemento</label><input type="text" id="e-complemento" placeholder="Opcional"/></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" style="margin-top:0;" onclick="salvarEndereco()">Salvar endereço</button>
+        <button onclick="document.getElementById('form-endereco').style.display='none'" style="background:#fff;border:1px solid var(--border);color:var(--muted);padding:13px 20px;border-radius:10px;font-weight:600;cursor:pointer;">Cancelar</button>
+      </div>
+    </div>
+
     <h2 style="font-size:16px;font-weight:800;margin-bottom:16px;">Meus pedidos</h2>
     <div id="pedidos-lista"></div>
     <div style="text-align:center;margin-top:28px;">
@@ -209,6 +237,7 @@ async function carregarPainel() {
   document.getElementById("auth").style.display = "none";
   document.getElementById("painel").style.display = "block";
   document.getElementById("user-nome").textContent = localStorage.getItem("user_nome") || "cliente";
+  carregarEnderecos();
 
   const r = await api("/api/conta/pedidos");
   const d = await r.json();
@@ -262,6 +291,49 @@ async function carregarPainel() {
       ${["approved","pagamento_aprovado","comprado_aliexpress","entregue"].includes(p.status)||p.rastreio ? timeline : ''}
     </div>`;
   }).join("");
+}
+
+// ── ENDEREÇOS ─────────────────────────────────────────────────────────────────
+async function carregarEnderecos(){
+  const r = await api("/api/conta/enderecos");
+  const d = await r.json();
+  const el = document.getElementById("enderecos-lista");
+  if(!d.ok || !d.enderecos.length){
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Nenhum endereço salvo ainda.</div>';
+    return;
+  }
+  el.innerHTML = d.enderecos.map(e=>`
+    <div style="background:#fff;border:1px solid ${e.principal?'var(--accent)':'var(--border)'};border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:180px;">
+        <div style="font-weight:700;font-size:14px;">📍 ${e.apelido} ${e.principal?'<span style="background:var(--accent)15;color:var(--accent);font-size:11px;padding:2px 8px;border-radius:5px;font-weight:700;">principal</span>':''}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;">${e.rua}, ${e.numero} ${e.complemento||''} · ${e.bairro} · ${e.cidade}/${e.estado} · ${e.cep}</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        ${!e.principal?`<button onclick="tornarPrincipal('${e.id}')" style="background:var(--accent)15;color:var(--accent);border:none;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;">Tornar principal</button>`:''}
+        <button onclick="removerEndereco('${e.id}')" style="background:#fef2f2;color:var(--red);border:none;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;">🗑️</button>
+      </div>
+    </div>`).join("");
+}
+function abrirFormEndereco(){ document.getElementById("form-endereco").style.display="block"; }
+async function salvarEndereco(){
+  const g=id=>document.getElementById(id).value.trim();
+  const dados={apelido:g("e-apelido")||"Endereço",nome:g("e-nome"),cpf:g("e-cpf"),telefone:g("e-tel"),cep:g("e-cep"),cidade:g("e-cidade"),estado:g("e-estado"),bairro:g("e-bairro"),numero:g("e-numero"),rua:g("e-rua"),complemento:g("e-complemento")};
+  if(!dados.rua||!dados.cidade){alert("Preencha ao menos rua e cidade.");return;}
+  const r=await api("/api/conta/enderecos",{method:"POST",body:JSON.stringify(dados)});
+  if((await r.json()).ok){
+    document.getElementById("form-endereco").style.display="none";
+    ["e-apelido","e-nome","e-cpf","e-tel","e-cep","e-cidade","e-estado","e-bairro","e-numero","e-rua","e-complemento"].forEach(id=>document.getElementById(id).value="");
+    carregarEnderecos();
+  } else alert("Erro ao salvar endereço");
+}
+async function removerEndereco(id){
+  if(!confirm("Remover este endereço?"))return;
+  await api(`/api/conta/enderecos/${id}`,{method:"DELETE"});
+  carregarEnderecos();
+}
+async function tornarPrincipal(id){
+  await api(`/api/conta/enderecos/${id}/principal`,{method:"POST"});
+  carregarEnderecos();
 }
 
 async function cancelarPedido(id){

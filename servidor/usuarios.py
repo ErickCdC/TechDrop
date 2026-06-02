@@ -135,6 +135,67 @@ def marcar_avaliou(email: str, produto_id: str):
             db.put(COLECAO, email, u)
 
 
+# ── ENDEREÇOS SALVOS ───────────────────────────────────────────────────────────
+
+def listar_enderecos(email: str) -> list[dict]:
+    u = db.get(COLECAO, email.lower().strip())
+    return (u or {}).get("enderecos", [])
+
+
+def adicionar_endereco(email: str, endereco: dict) -> dict | None:
+    email = email.lower().strip()
+    u = db.get(COLECAO, email)
+    if not u:
+        return None
+    u.setdefault("enderecos", [])
+    novo = {
+        "id":        str(uuid.uuid4())[:8],
+        "apelido":   (endereco.get("apelido") or "Endereço").strip()[:30],
+        "nome":      endereco.get("nome", ""),
+        "cpf":       endereco.get("cpf", ""),
+        "telefone":  endereco.get("telefone", ""),
+        "cep":       endereco.get("cep", ""),
+        "rua":       endereco.get("rua", ""),
+        "numero":    endereco.get("numero", ""),
+        "complemento": endereco.get("complemento", ""),
+        "bairro":    endereco.get("bairro", ""),
+        "cidade":    endereco.get("cidade", ""),
+        "estado":    endereco.get("estado", ""),
+        "principal": len(u["enderecos"]) == 0,  # primeiro vira principal
+    }
+    u["enderecos"].append(novo)
+    db.put(COLECAO, email, u)
+    return novo
+
+
+def remover_endereco(email: str, end_id: str) -> bool:
+    email = email.lower().strip()
+    u = db.get(COLECAO, email)
+    if not u:
+        return False
+    antes = len(u.get("enderecos", []))
+    u["enderecos"] = [e for e in u.get("enderecos", []) if e.get("id") != end_id]
+    # se removeu o principal, promove o primeiro
+    if u["enderecos"] and not any(e.get("principal") for e in u["enderecos"]):
+        u["enderecos"][0]["principal"] = True
+    db.put(COLECAO, email, u)
+    return len(u["enderecos"]) < antes
+
+
+def definir_endereco_principal(email: str, end_id: str) -> bool:
+    email = email.lower().strip()
+    u = db.get(COLECAO, email)
+    if not u:
+        return False
+    achou = False
+    for e in u.get("enderecos", []):
+        e["principal"] = (e.get("id") == end_id)
+        achou = achou or e["principal"]
+    if achou:
+        db.put(COLECAO, email, u)
+    return achou
+
+
 def pedidos_do_usuario(email: str) -> list[dict]:
     """Retorna os pedidos vinculados à conta (por usuario_email ou email do cliente)."""
     email = email.lower().strip()

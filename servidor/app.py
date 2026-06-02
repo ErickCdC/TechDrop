@@ -602,6 +602,40 @@ def conta_cancelar_pedido(pid):
     return jsonify({"ok": True})
 
 
+def _user_do_token():
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    return usuarios.verificar_token(token)
+
+@app.route("/api/conta/enderecos", methods=["GET"])
+def conta_listar_enderecos():
+    d = _user_do_token()
+    if not d:
+        return jsonify({"ok": False, "erro": "Não autenticado"}), 401
+    return jsonify({"ok": True, "enderecos": usuarios.listar_enderecos(d["email"])})
+
+@app.route("/api/conta/enderecos", methods=["POST"])
+def conta_add_endereco():
+    d = _user_do_token()
+    if not d:
+        return jsonify({"ok": False, "erro": "Não autenticado"}), 401
+    novo = usuarios.adicionar_endereco(d["email"], request.json or {})
+    return jsonify({"ok": bool(novo), "endereco": novo}), (201 if novo else 400)
+
+@app.route("/api/conta/enderecos/<eid>", methods=["DELETE"])
+def conta_del_endereco(eid):
+    d = _user_do_token()
+    if not d:
+        return jsonify({"ok": False, "erro": "Não autenticado"}), 401
+    return jsonify({"ok": usuarios.remover_endereco(d["email"], eid)})
+
+@app.route("/api/conta/enderecos/<eid>/principal", methods=["POST"])
+def conta_principal_endereco(eid):
+    d = _user_do_token()
+    if not d:
+        return jsonify({"ok": False, "erro": "Não autenticado"}), 401
+    return jsonify({"ok": usuarios.definir_endereco_principal(d["email"], eid)})
+
+
 @app.route("/api/conta/pedidos", methods=["GET"])
 def conta_pedidos():
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
