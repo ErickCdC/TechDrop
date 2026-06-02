@@ -716,6 +716,17 @@ const CFG_CAMPOS = [
     {k:"rodape_email", label:"E-mail de contato", tipo:"text"},
     {k:"rodape_cnpj",  label:"CNPJ (opcional)", tipo:"text"},
   ]},
+  {secao:"SEO (Google)", campos:[
+    {k:"seo_titulo",    label:"Título do site (aba do navegador / Google)", tipo:"text"},
+    {k:"seo_descricao", label:"Descrição (aparece no Google)", tipo:"textarea"},
+    {k:"seo_palavras",  label:"Palavras-chave (separadas por vírgula)", tipo:"text"},
+  ]},
+  {secao:"Pixels de rastreamento", dica:"Cole apenas o ID. Deixe em branco para desativar.", campos:[
+    {k:"pixel_meta",       label:"Meta Pixel (Facebook/Instagram) — ID", tipo:"text"},
+    {k:"pixel_tiktok",     label:"TikTok Pixel — ID", tipo:"text"},
+    {k:"google_analytics", label:"Google Analytics — ID (G-XXXX)", tipo:"text"},
+    {k:"google_ads",       label:"Google Ads — ID (AW-XXXX)", tipo:"text"},
+  ]},
 ];
 
 let _config = {};
@@ -743,7 +754,8 @@ async function carregarConfigAdmin(){
   const cont = document.getElementById("cfg-blocos");
   cont.innerHTML = CFG_CAMPOS.map(bloco => `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
-      <h2 style="font-size:14px;font-weight:800;margin-bottom:16px;color:var(--accent);">${bloco.secao}</h2>
+      <h2 style="font-size:14px;font-weight:800;margin-bottom:${bloco.dica?'6px':'16px'};color:var(--accent);">${bloco.secao}</h2>
+      ${bloco.dica?`<p style="font-size:12px;color:var(--muted);margin-bottom:14px;">${bloco.dica}</p>`:''}
       ${bloco.campos.map(c => {
         const val = _config[c.k] ?? "";
         if (c.tipo === "bool") return `

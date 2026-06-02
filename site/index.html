@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>TechDrop — Tecnologia com bom custo-benefício</title>
   <meta name="description" content="Fones, carregadores e acessórios tech com entrega para todo o Brasil."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:title" content="TechDrop — Tecnologia com bom custo-benefício"/>
+  <meta property="og:image" content="/logo.png"/>
   <link rel="icon" href="/logo.png" type="image/png"/>
+  <script src="/pixels.js"></script>
 
   <!-- Pixels de anúncios: cole seu ID e descomente para ativar -->
   <!-- <script>/* Meta Pixel aqui */</script> -->
@@ -405,6 +409,9 @@ function aplicarConfig(c){
     set("logo-footer", c.loja_nome);
     set("rodape-copy", `© 2026 ${c.loja_nome}. Todos os direitos reservados.`);
   }
+  // SEO dinâmico
+  if(c.seo_titulo) document.title = c.seo_titulo;
+  if(c.seo_descricao){ const m=document.querySelector('meta[name="description"]'); if(m) m.content=c.seo_descricao; }
   // Topbar
   const tb=document.getElementById("topbar");
   if(c.topbar_ativa===false){tb.style.display="none";}else{tb.textContent=c.topbar_texto||"";}
@@ -548,6 +555,7 @@ function addCarrinho(id,titulo,imagem,preco){
   if(ex)ex.quantidade=(ex.quantidade||1)+1;
   else carrinho.push({id,titulo_pt:titulo,imagem,preco_venda:preco,quantidade:1});
   _save();abrirCarrinho();
+  if(window.track) track("AddToCart",{content_name:titulo,value:preco,currency:"BRL"});
 }
 function adicionarDestaque(){if(_destaque)addCarrinho(_destaque.id,_destaque.titulo,_destaque.imagem,_destaque.preco_venda);}
 function removerItem(id){carrinho=carrinho.filter(i=>i.id!==id);_save();}

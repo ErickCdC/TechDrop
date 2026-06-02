@@ -4,6 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Finalizar Pedido — TechDrop Brasil</title>
+  <link rel="icon" href="/logo.png"/>
+  <script src="/pixels.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root{--accent:#2563eb;--green:#16a34a;--red:#dc2626;--border:#e5e7eb;--muted:#6b7280;--bg:#f9fafb;}
@@ -423,6 +425,7 @@ async function finalizarPedido() {
 
     if (data.ok) {
       localStorage.setItem("ultimo_pedido", data.pedido_id);
+      localStorage.setItem("ultimo_total", (_subtotal - _desconto).toFixed(2));
       // Redireciona para o Mercado Pago
       window.location.href = data.checkout_url;
     } else {
@@ -471,6 +474,10 @@ document.getElementById("cpf").addEventListener("input", function() {
 });
 
 renderResumo();
+if(window.track && carrinho.length){
+  const _tot = carrinho.reduce((s,i)=>s+i.preco_venda*(i.quantidade||1),0);
+  track("InitiateCheckout",{value:_tot,currency:"BRL",num_items:carrinho.length});
+}
 
 // Toggle do campo de apelido ao marcar "salvar endereço"
 document.getElementById("salvar-endereco")?.addEventListener("change", function(){

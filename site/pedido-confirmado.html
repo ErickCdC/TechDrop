@@ -4,6 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Pedido Confirmado — TechDrop Brasil</title>
+  <link rel="icon" href="/logo.png"/>
+  <script src="/pixels.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
@@ -43,7 +45,15 @@
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id") || localStorage.getItem("ultimo_pedido") || "—";
   document.getElementById("pedido-num").textContent = "Pedido #" + id;
+  // Conversão Purchase (usa o total salvo no checkout, antes de limpar o carrinho)
+  try{
+    const carrinho = JSON.parse(localStorage.getItem("carrinho") || "[]");
+    const valor = parseFloat(localStorage.getItem("ultimo_total")) ||
+                  carrinho.reduce((s,i)=>s+i.preco_venda*(i.quantidade||1),0);
+    if(window.track && valor>0) track("Purchase",{value:valor,currency:"BRL",transaction_id:id});
+  }catch(e){}
   localStorage.removeItem("carrinho");
+  localStorage.removeItem("ultimo_total");
 </script>
 </body>
 </html>

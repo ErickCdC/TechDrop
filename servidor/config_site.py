@@ -51,6 +51,17 @@ PADRAO = {
     "cashback_ativo":        True,
     "cashback_por_avaliacao": 5.0,    # R$ que o cliente ganha por avaliar
     "cashback_uso_max_pct":   30,     # % máximo do pedido que pode pagar com cashback
+
+    # SEO
+    "seo_titulo":      "TechDrop — Tecnologia com bom custo-benefício",
+    "seo_descricao":   "Fones, carregadores, powerbanks e acessórios tech com entrega para todo o Brasil. Pagamento seguro.",
+    "seo_palavras":    "fones bluetooth, powerbank, carregador, acessórios tech, eletrônicos",
+
+    # Pixels de rastreamento (cole só o ID)
+    "pixel_meta":      "",   # ex: 123456789012345
+    "pixel_tiktok":    "",   # ex: C1A2B3...
+    "google_analytics":"",   # ex: G-XXXXXXX
+    "google_ads":      "",   # ex: AW-XXXXXXX
 }
 
 

@@ -1281,6 +1281,24 @@ def produto_page():
 def info_page():
     return send_from_directory(app.static_folder, "info.html")
 
+@app.route("/robots.txt")
+def robots():
+    txt = f"User-agent: *\nAllow: /\nDisallow: /admin-panel\nDisallow: /api/\nSitemap: {LOJA_URL}/sitemap.xml\n"
+    return app.response_class(txt, mimetype="text/plain")
+
+@app.route("/sitemap.xml")
+def sitemap():
+    urls = [f"{LOJA_URL}/", f"{LOJA_URL}/info?p=sobre", f"{LOJA_URL}/info?p=privacidade",
+            f"{LOJA_URL}/info?p=termos", f"{LOJA_URL}/info?p=trocas", f"{LOJA_URL}/info?p=entrega",
+            f"{LOJA_URL}/rastrear"]
+    for p in produtos_db.listar():
+        if p.get("ativo", True):
+            urls.append(f"{LOJA_URL}/produto?id={p['id']}")
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    xml += "".join(f"  <url><loc>{u}</loc></url>\n" for u in urls)
+    xml += "</urlset>"
+    return app.response_class(xml, mimetype="application/xml")
+
 @app.route("/rastrear")
 @app.route("/rastrear.html")
 def rastrear_page():

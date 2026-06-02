@@ -4,6 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title id="page-title">Produto — TechDrop</title>
+  <link rel="icon" href="/logo.png"/>
+  <script src="/pixels.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root{--primary:#2563eb;--primary-dark:#1d4ed8;--ink:#0f172a;--body:#334155;--muted:#64748b;--line:#e2e8f0;--bg:#fff;--bg-soft:#f8fafc;--green:#059669;--amber:#f59e0b;--shadow:0 1px 3px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.04);}
@@ -313,6 +315,7 @@ async function init(){
     if(!d.ok) return erro();
     PRODUTO=d.produto;
     render(d);
+    if(window.track) track("ViewContent",{content_name:PRODUTO.titulo,value:PRODUTO.preco_venda,currency:"BRL"});
   }catch(e){ erro(); }
   badge();
 }
@@ -558,6 +561,7 @@ function adicionar(){
     link_aliexpress:PRODUTO.link_aliexpress||""
   });
   localStorage.setItem("carrinho",JSON.stringify(carrinho));badge();abrirCarrinho();
+  if(window.track) track("AddToCart",{content_name:PRODUTO.titulo,value:_precoAtual||PRODUTO.preco_venda,currency:"BRL"});
 }
 function removerItem(i){carrinho.splice(i,1);localStorage.setItem("carrinho",JSON.stringify(carrinho));badge();renderCart();}
 function renderCart(){
