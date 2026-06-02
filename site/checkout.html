@@ -111,26 +111,15 @@
         <div class="field"><label>Telefone</label><input type="text" id="tel" placeholder="(11) 99999-9999"/></div>
       </div>
       <div class="form-row">
-        <div class="field"><label>CEP</label><input type="text" id="cep" placeholder="00000-000" maxlength="9" oninput="buscarCep(this.value)"/></div>
-        <div class="field"><label>Estado</label>
-          <select id="estado">
-            <option value="">Selecione...</option>
-            <option>SP</option><option>RJ</option><option>MG</option><option>RS</option>
-            <option>PR</option><option>SC</option><option>BA</option><option>GO</option>
-            <option>DF</option><option>PE</option><option>CE</option><option>PA</option>
-            <option>AM</option><option>MS</option><option>MT</option><option>ES</option>
-            <option>RO</option><option>AC</option><option>AP</option><option>RR</option>
-            <option>TO</option><option>MA</option><option>PI</option><option>PB</option>
-            <option>RN</option><option>SE</option><option>AL</option>
-          </select>
-        </div>
+        <div class="field"><label>CEP *</label><input type="text" id="cep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this);buscarCep(this.value)"/><div id="cep-erro" style="font-size:11px;color:#dc2626;margin-top:3px;display:none;">CEP não encontrado</div></div>
+        <div class="field"><label>Estado</label><input type="text" id="estado" placeholder="Preenchido pelo CEP" readonly style="background:#f1f5f9;cursor:not-allowed;"/></div>
       </div>
       <div class="form-row">
-        <div class="field"><label>Cidade</label><input type="text" id="cidade" placeholder="São Paulo"/></div>
-        <div class="field"><label>Bairro</label><input type="text" id="bairro" placeholder="Centro"/></div>
+        <div class="field"><label>Cidade</label><input type="text" id="cidade" placeholder="Preenchido pelo CEP" readonly style="background:#f1f5f9;cursor:not-allowed;"/></div>
+        <div class="field"><label>Bairro</label><input type="text" id="bairro" placeholder="Preenchido pelo CEP"/></div>
       </div>
       <div class="form-row full">
-        <div class="field"><label>Endereço</label><input type="text" id="rua" placeholder="Rua das Flores, 123"/></div>
+        <div class="field"><label>Endereço (rua)</label><input type="text" id="rua" placeholder="Preenchido pelo CEP"/></div>
       </div>
       <div class="form-row">
         <div class="field"><label>Número</label><input type="text" id="numero" placeholder="123"/></div>
@@ -330,19 +319,34 @@ window.addEventListener("load", () => {
 
 
 // ── CEP AUTOMÁTICO ────────────────────────────────────────────────────────────
+function mascaraCep(el){
+  let v = el.value.replace(/\D/g,"").slice(0,8);
+  if(v.length>5) v = v.slice(0,5)+"-"+v.slice(5);
+  el.value = v;
+}
 async function buscarCep(cep) {
   cep = cep.replace(/\D/g, "");
-  if (cep.length !== 8) return;
+  const erro = document.getElementById("cep-erro");
+  if (cep.length !== 8) { erro.style.display="none"; return; }
   try {
     const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
     const d = await r.json();
-    if (!d.erro) {
-      document.getElementById("rua").value    = d.logradouro || "";
-      document.getElementById("bairro").value = d.bairro     || "";
-      document.getElementById("cidade").value = d.localidade || "";
-      document.getElementById("estado").value = d.uf         || "";
-    }
-  } catch(_) {}
+    if (d.erro) { erro.style.display="block"; return; }
+    erro.style.display = "none";
+    const rua = document.getElementById("rua");
+    const bairro = document.getElementById("bairro");
+    document.getElementById("cidade").value = d.localidade || "";
+    document.getElementById("estado").value = d.uf         || "";
+    rua.value    = d.logradouro || "";
+    bairro.value = d.bairro     || "";
+    // Trava rua/bairro quando o CEP já trouxe (evita erro de digitação)
+    rua.readOnly    = !!d.logradouro;
+    bairro.readOnly = !!d.bairro;
+    rua.style.background    = d.logradouro ? "#f1f5f9" : "";
+    bairro.style.background = d.bairro     ? "#f1f5f9" : "";
+    // Foca no número (o que falta preencher)
+    document.getElementById("numero").focus();
+  } catch(_) { erro.style.display="block"; }
 }
 
 // ── FINALIZAR PEDIDO ──────────────────────────────────────────────────────────

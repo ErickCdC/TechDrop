@@ -211,12 +211,24 @@ def criar_checkout():
             "quantity": 1, "unit_price": -float(cashback_usado), "currency_id": "BRL",
         })
 
+    # Pagador completo (CPF + nome) — necessário p/ liberar o Pix no MP
+    _nome_partes = (cliente.get("nome", "") or "").strip().split(" ", 1)
+    _cpf_num = re.sub(r"\D", "", cliente.get("cpf", ""))
+    _end = cliente.get("endereco", {}) or {}
     preference = {
         "external_reference": pedido_id,
         "items": mp_items,
         "payer": {
-            "name":  cliente.get("nome", ""),
-            "email": cliente.get("email", ""),
+            "name":    _nome_partes[0],
+            "surname": _nome_partes[1] if len(_nome_partes) > 1 else "",
+            "email":   cliente.get("email", ""),
+            "identification": {"type": "CPF", "number": _cpf_num},
+            "phone": {"number": re.sub(r"\D", "", cliente.get("telefone", ""))},
+            "address": {
+                "zip_code":     re.sub(r"\D", "", _end.get("cep", "")),
+                "street_name":  _end.get("rua", ""),
+                "street_number": _end.get("numero", ""),
+            },
         },
         "back_urls": {
             "success": f"{LOJA_URL}/pedido-confirmado.html?id={pedido_id}",
@@ -1231,6 +1243,16 @@ def avaliar_page():
 @app.route("/produto.html")
 def produto_page():
     return send_from_directory(app.static_folder, "produto.html")
+
+@app.route("/info")
+@app.route("/info.html")
+def info_page():
+    return send_from_directory(app.static_folder, "info.html")
+
+@app.route("/rastrear")
+@app.route("/rastrear.html")
+def rastrear_page():
+    return send_from_directory(app.static_folder, "rastrear.html")
 
 
 if __name__ == "__main__":

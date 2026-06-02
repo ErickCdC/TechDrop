@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>TechDrop — Informações</title>
+  <link rel="icon" href="/logo.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--primary:#2563eb;--ink:#0f172a;--body:#334155;--muted:#64748b;--line:#e2e8f0;--bg:#f8fafc;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;color:var(--body);background:#fff;font-size:15px;line-height:1.7;}
+    a{color:var(--primary);}
+    header{border-bottom:1px solid var(--line);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:10;}
+    header img{height:42px;}
+    .back{font-size:14px;color:var(--muted);text-decoration:none;}
+    .wrap{max-width:760px;margin:40px auto;padding:0 24px;}
+    h1{font-size:28px;font-weight:800;color:var(--ink);margin-bottom:8px;letter-spacing:-.5px;}
+    .sub{color:var(--muted);margin-bottom:32px;}
+    h2{font-size:18px;font-weight:700;color:var(--ink);margin:28px 0 10px;}
+    p{margin-bottom:14px;}
+    ul{margin:0 0 16px 22px;}
+    li{margin-bottom:8px;}
+    .box{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:20px;}
+    .menu{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:32px;}
+    .menu a{font-size:13px;font-weight:600;padding:7px 14px;border-radius:50px;border:1px solid var(--line);text-decoration:none;color:var(--body);}
+    .menu a.on{background:var(--primary);color:#fff;border-color:var(--primary);}
+    footer{border-top:1px solid var(--line);padding:24px 5%;text-align:center;color:var(--muted);font-size:13px;margin-top:40px;}
+  </style>
+</head>
+<body>
+<header>
+  <a href="/"><img src="/logo.png" alt="TechDrop"/></a>
+  <a href="/" class="back">← Voltar à loja</a>
+</header>
+
+<div class="wrap">
+  <div class="menu" id="menu"></div>
+  <div id="conteudo"></div>
+</div>
+
+<footer>© 2026 TechDrop. Todos os direitos reservados.</footer>
+
+<script>
+const LOJA_EMAIL = "contato@techdrop.com.br";
+const PAGINAS = {
+  sobre: {
+    titulo: "Sobre a TechDrop",
+    sub: "Tecnologia com bom custo-benefício, entregue na sua casa.",
+    html: `
+      <p>A <strong>TechDrop</strong> é uma loja online especializada em produtos de tecnologia — fones, carregadores, powerbanks e acessórios — selecionados a dedo pela melhor relação entre qualidade e preço.</p>
+      <p>Trabalhamos com fornecedores internacionais para oferecer produtos que normalmente custariam muito mais no varejo tradicional brasileiro, repassando essa economia para você.</p>
+      <h2>Como funciona</h2>
+      <ul>
+        <li>Você compra no nosso site com pagamento 100% seguro (Mercado Pago)</li>
+        <li>Processamos seu pedido com nosso fornecedor parceiro</li>
+        <li>O produto é enviado diretamente para o seu endereço</li>
+        <li>Você acompanha tudo pelo código de rastreio</li>
+      </ul>
+      <div class="box">📦 <strong>Prazo de entrega:</strong> 15 a 25 dias úteis, pois muitos produtos vêm de fornecedores internacionais. Esse é o que nos permite manter os preços baixos.</div>
+    `
+  },
+  privacidade: {
+    titulo: "Política de Privacidade",
+    sub: "Como tratamos seus dados (conforme a LGPD).",
+    html: `
+      <p>A sua privacidade é importante para nós. Esta política explica quais dados coletamos, por que coletamos e como os protegemos, em conformidade com a <strong>Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018)</strong>.</p>
+      <h2>Dados que coletamos</h2>
+      <ul>
+        <li><strong>Cadastro:</strong> nome e e-mail</li>
+        <li><strong>Entrega:</strong> CPF, telefone, endereço completo</li>
+        <li><strong>Pagamento:</strong> processado diretamente pelo Mercado Pago (não armazenamos dados de cartão)</li>
+      </ul>
+      <h2>Por que usamos</h2>
+      <ul>
+        <li>Processar e entregar seu pedido</li>
+        <li>Repassar os dados de entrega ao fornecedor/logística (necessário para o envio)</li>
+        <li>Enviar confirmações, rastreio e atualizações do pedido</li>
+        <li>Atendimento e suporte</li>
+      </ul>
+      <h2>Seus direitos</h2>
+      <p>Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento pelo e-mail <a href="mailto:${LOJA_EMAIL}">${LOJA_EMAIL}</a>.</p>
+      <div class="box">🔒 Não vendemos nem compartilhamos seus dados com terceiros para fins de marketing. Os dados são usados apenas para processar seu pedido.</div>
+    `
+  },
+  termos: {
+    titulo: "Termos de Uso",
+    sub: "Condições para uso da loja e compras.",
+    html: `
+      <h2>1. Sobre a loja</h2>
+      <p>A TechDrop atua como loja intermediária (modelo dropshipping), comercializando produtos enviados por fornecedores parceiros, inclusive internacionais.</p>
+      <h2>2. Prazos de entrega</h2>
+      <p>O prazo estimado é de <strong>15 a 25 dias úteis</strong>. Por se tratar de envio internacional em alguns casos, o prazo pode variar conforme a alfândega e a logística.</p>
+      <h2>3. Preços e pagamento</h2>
+      <p>Os preços estão em reais (BRL) e incluem frete. O pagamento é processado pelo Mercado Pago (Pix, cartão ou boleto).</p>
+      <h2>4. Cancelamento</h2>
+      <p>Pedidos ainda não pagos podem ser cancelados pela área "Meus pedidos". Após o pagamento e processamento, aplicam-se as regras de troca e devolução.</p>
+      <h2>5. Responsabilidades</h2>
+      <p>O comprador é responsável por fornecer dados de entrega corretos. Endereços incorretos podem causar atraso ou extravio.</p>
+    `
+  },
+  trocas: {
+    titulo: "Trocas e Devoluções",
+    sub: "Garantia e como solicitar.",
+    html: `
+      <h2>Garantia de 7 dias</h2>
+      <p>Você tem <strong>7 dias após o recebimento</strong> para solicitar a devolução, conforme o Código de Defesa do Consumidor (direito de arrependimento).</p>
+      <h2>Produto com defeito</h2>
+      <p>Se o produto chegar com defeito ou diferente do anunciado, entre em contato em até 7 dias com <strong>fotos ou vídeo</strong> do problema.</p>
+      <h2>Como solicitar</h2>
+      <ul>
+        <li>Envie um e-mail para <a href="mailto:${LOJA_EMAIL}">${LOJA_EMAIL}</a> com o número do pedido</li>
+        <li>Descreva o motivo e anexe fotos/vídeo, se aplicável</li>
+        <li>Nossa equipe avalia e responde em até 48h</li>
+      </ul>
+      <div class="box">⏱️ <strong>Não recebeu?</strong> Se o pedido não chegar em até 35 dias corridos, você tem direito a reembolso integral. Basta solicitar.</div>
+    `
+  },
+  entrega: {
+    titulo: "Prazo de Entrega",
+    sub: "Quanto tempo leva e como acompanhar.",
+    html: `
+      <h2>Prazo estimado</h2>
+      <p><strong>15 a 25 dias úteis</strong> após a confirmação do pagamento. O despacho ocorre em até 48h.</p>
+      <h2>Etapas do pedido</h2>
+      <ul>
+        <li><strong>Pago</strong> — recebemos seu pagamento</li>
+        <li><strong>Em separação</strong> — preparando o envio (até 48h)</li>
+        <li><strong>Em trânsito</strong> — a caminho, com código de rastreio</li>
+        <li><strong>Entregue</strong> — chegou no seu endereço</li>
+      </ul>
+      <h2>Acompanhe</h2>
+      <p>Você recebe o código de rastreio por e-mail e pode acompanhar em <a href="/minha-conta">Meus pedidos</a> ou na página de <a href="/rastrear">Rastreamento</a>.</p>
+    `
+  },
+};
+
+function render(){
+  const p = new URLSearchParams(location.search).get("p") || "sobre";
+  const pg = PAGINAS[p] || PAGINAS.sobre;
+  document.title = "TechDrop — " + pg.titulo;
+  document.getElementById("menu").innerHTML = Object.entries(PAGINAS).map(([k,v])=>
+    `<a href="/info?p=${k}" class="${k===p?'on':''}">${v.titulo}</a>`).join("");
+  document.getElementById("conteudo").innerHTML = `<h1>${pg.titulo}</h1><div class="sub">${pg.sub}</div>${pg.html}`;
+}
+render();
+</script>
+</body>
+</html>

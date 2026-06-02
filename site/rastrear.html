@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Rastrear pedido — TechDrop</title>
+  <link rel="icon" href="/logo.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--primary:#2563eb;--ink:#0f172a;--body:#334155;--muted:#64748b;--line:#e2e8f0;--bg:#f8fafc;--green:#16a34a;}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;color:var(--body);background:#fff;font-size:15px;}
+    header{border-bottom:1px solid var(--line);padding:14px 5%;display:flex;align-items:center;justify-content:space-between;}
+    header img{height:42px;}
+    .back{font-size:14px;color:var(--muted);text-decoration:none;}
+    .wrap{max-width:560px;margin:48px auto;padding:0 24px;}
+    h1{font-size:26px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+    .sub{color:var(--muted);margin-bottom:28px;}
+    .field{margin-bottom:14px;}
+    .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;}
+    .field input{width:100%;border:1.5px solid var(--line);border-radius:9px;padding:12px 14px;font-size:14px;font-family:inherit;outline:none;}
+    .field input:focus{border-color:var(--primary);}
+    .btn{width:100%;background:var(--primary);color:#fff;border:none;padding:13px;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;}
+    .resultado{margin-top:24px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:20px;display:none;}
+    .resultado.show{display:block;}
+    .status{font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px;}
+    .desc{color:var(--muted);font-size:14px;}
+    .link17{display:inline-block;margin-top:14px;color:var(--primary);font-weight:600;text-decoration:none;}
+  </style>
+</head>
+<body>
+<header>
+  <a href="/"><img src="/logo.png" alt="TechDrop"/></a>
+  <a href="/" class="back">← Voltar à loja</a>
+</header>
+<div class="wrap">
+  <h1>Rastrear pedido</h1>
+  <p class="sub">Digite o código de rastreio que você recebeu por e-mail, ou veja em <a href="/minha-conta">Meus pedidos</a>.</p>
+  <div class="field">
+    <label>Código de rastreio</label>
+    <input type="text" id="codigo" placeholder="Ex: BR123456789CN" onkeydown="if(event.key==='Enter')rastrear()"/>
+  </div>
+  <button class="btn" onclick="rastrear()">Rastrear</button>
+  <div class="resultado" id="resultado"></div>
+</div>
+<script>
+async function rastrear(){
+  const cod = document.getElementById("codigo").value.trim();
+  if(!cod) return;
+  const box = document.getElementById("resultado");
+  box.className = "resultado show";
+  box.innerHTML = "<p style='color:var(--muted)'>Consultando...</p>";
+  try{
+    const d = await (await fetch(`/api/rastreio/${encodeURIComponent(cod)}`)).json();
+    const info = d.rastreio || {};
+    box.innerHTML = `
+      <div class="status">${info.descricao || 'Status indisponível'}</div>
+      <div class="desc">${info.ultimo_evento || 'Aguardando atualização da transportadora.'}</div>
+      <a class="link17" href="https://www.17track.net/pt-br?nums=${encodeURIComponent(cod)}" target="_blank">Ver detalhes completos no 17track →</a>`;
+  }catch(e){
+    box.innerHTML = `<a class="link17" href="https://www.17track.net/pt-br?nums=${encodeURIComponent(cod)}" target="_blank">Rastrear no 17track →</a>`;
+  }
+}
+const auto = new URLSearchParams(location.search).get("c");
+if(auto){ document.getElementById("codigo").value = auto; rastrear(); }
+</script>
+</body>
+</html>
