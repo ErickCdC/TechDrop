@@ -125,6 +125,21 @@ def criar_checkout():
             desconto = res["desconto"]
             cupom_aplicado = res["codigo"]
 
+    # ── CASHBACK ────────────────────────────────────────────────────────────────
+    cashback_usado = 0
+    usar_cashback = float(body.get("cashback", 0) or 0)
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    user_data = usuarios.verificar_token(token) if token else None
+    if usar_cashback > 0 and user_data:
+        cfg = config_site.obter()
+        saldo = usuarios.obter_saldo(user_data["email"])
+        max_uso = (subtotal - desconto) * float(cfg.get("cashback_uso_max_pct", 30)) / 100
+        cashback_usado = min(usar_cashback, saldo, max_uso)
+        cashback_usado = round(cashback_usado, 2)
+        if cashback_usado > 0:
+            usuarios.usar_cashback(user_data["email"], cashback_usado)
+
+    desconto_total = desconto + cashback_usado
     pedido_id = str(uuid.uuid4())[:8].upper()
 
     # Monta itens da preferência
@@ -138,11 +153,17 @@ def criar_checkout():
         }
         for item in itens
     ]
-    # Desconto entra como item negativo
+    # Desconto (cupom) entra como item negativo
     if desconto > 0:
         mp_items.append({
             "id": "desconto", "title": f"Desconto ({cupom_aplicado})",
             "quantity": 1, "unit_price": -float(desconto), "currency_id": "BRL",
+        })
+    # Cashback entra como item negativo
+    if cashback_usado > 0:
+        mp_items.append({
+            "id": "cashback", "title": "Cashback aplicado",
+            "quantity": 1, "unit_price": -float(cashback_usado), "currency_id": "BRL",
         })
 
     preference = {
@@ -155,13 +176,15 @@ def criar_checkout():
         "back_urls": {
             "success": f"{LOJA_URL}/pedido-confirmado.html?id={pedido_id}",
             "failure": f"{LOJA_URL}/?checkout=falhou",
-            "pending": f"{LOJA_URL}/pedido-pendente.html?id={pedido_id}",
+            "pending": f"{LOJA_URL}/pedido-confirmado.html?id={pedido_id}",
         },
-        "auto_return":        "approved",
         "notification_url":   f"{LOJA_URL}/api/webhook/mercadopago",
-        "statement_descriptor": "TECHDROP BRASIL",
+        "statement_descriptor": (config_site.obter().get("loja_nome", "LOJA")[:22]).upper(),
         "expires":             False,
     }
+    # auto_return só é aceito pelo MP com URL pública https
+    if LOJA_URL.startswith("https://"):
+        preference["auto_return"] = "approved"
 
     headers = {**MP_HEADERS, "X-Idempotency-Key": pedido_id}
     resp = httpx.post(
@@ -172,7 +195,14 @@ def criar_checkout():
     )
 
     if resp.status_code != 201:
-        return jsonify({"ok": False, "erro": resp.text}), 400
+        # Retorna o erro detalhado do MP para diagnóstico
+        try:
+            err = resp.json()
+            msg = err.get("message") or err.get("error") or resp.text
+        except Exception:
+            msg = resp.text
+        print(f"[MP] Erro {resp.status_code}: {msg}")
+        return jsonify({"ok": False, "erro": f"Mercado Pago: {msg}"}), 400
 
     mp_data = resp.json()
 
@@ -187,7 +217,8 @@ def criar_checkout():
         "subtotal":     round(subtotal, 2),
         "desconto":     desconto,
         "cupom":        cupom_aplicado,
-        "total":        round(subtotal - desconto, 2),
+        "cashback_usado": cashback_usado,
+        "total":        round(subtotal - desconto_total, 2),
         "checkout_url": mp_data.get("init_point"),
         "email_recuperacao_enviado": False,
     }
@@ -373,7 +404,18 @@ def criar_avaliacao():
     if not pedido_id or not avaliacoes.validar_token(pedido_id, token):
         return jsonify({"ok": False, "erro": "Link de avaliação inválido"}), 403
     av = avaliacoes.criar(produto_id, d)
-    return jsonify({"ok": True, "avaliacao": av}), 201
+    # Cashback se o comprador tiver conta cadastrada
+    resp = {"ok": True, "avaliacao": av}
+    pedido = _carregar_pedido(pedido_id)
+    email = (pedido or {}).get("cliente", {}).get("email", "")
+    cfg = config_site.obter()
+    if email and cfg.get("cashback_ativo") and usuarios.obter(email) \
+       and not usuarios.ja_avaliou_produto(email, produto_id):
+        valor = float(cfg.get("cashback_por_avaliacao", 5))
+        usuarios.adicionar_cashback(email, valor, "Avaliação pós-compra")
+        usuarios.marcar_avaliou(email, produto_id)
+        resp["cashback_ganho"] = valor
+    return jsonify(resp), 201
 
 @app.route("/api/avaliacoes/pedido/<pedido_id>", methods=["GET"])
 def avaliacao_dados_pedido(pedido_id):
@@ -406,6 +448,19 @@ def admin_aprovar_avaliacao(av_id):
 @login_required
 def admin_deletar_avaliacao(av_id):
     return jsonify({"ok": avaliacoes.deletar(av_id)})
+
+@app.route("/api/admin/avaliacoes/remover-duplicadas", methods=["POST"])
+@login_required
+def admin_remover_duplicadas():
+    n = avaliacoes.remover_duplicadas()
+    return jsonify({"ok": True, "removidas": n})
+
+@app.route("/api/admin/avaliacoes/lote", methods=["POST"])
+@login_required
+def admin_avaliacoes_lote():
+    d = request.json or {}
+    n = avaliacoes.acao_em_lote(d.get("ids", []), d.get("acao", ""))
+    return jsonify({"ok": True, "afetadas": n})
 
 @app.route("/api/admin/avaliacoes/importar", methods=["POST"])
 @login_required
@@ -492,10 +547,32 @@ def admin_me():
 def admin_listar_produtos():
     return jsonify({"ok": True, "produtos": produtos_db.listar()})
 
+@app.route("/api/admin/gerar-descricao", methods=["POST"])
+@login_required
+def admin_gerar_descricao():
+    """Agente de IA: gera headline + descrição usando só os dados do anúncio."""
+    try:
+        from servidor import descricao_ia
+    except ImportError:
+        import descricao_ia
+    d = request.json or {}
+    try:
+        res = descricao_ia.gerar(d.get("titulo", ""), d.get("especificacoes", []), d.get("descricao", ""))
+        return jsonify({"ok": True, **res})
+    except Exception as e:
+        return jsonify({"ok": False, "erro": str(e)}), 500
+
 @app.route("/api/admin/produtos", methods=["POST"])
 @login_required
 def admin_criar_produto():
     dados = request.json or {}
+    # Anti-duplicação: se já existe produto com o mesmo link AliExpress, atualiza
+    link = (dados.get("link_aliexpress") or "").split("?")[0]
+    if link:
+        for p in produtos_db.listar():
+            if (p.get("link_aliexpress") or "").split("?")[0] == link:
+                atualizado = produtos_db.atualizar(p["id"], dados)
+                return jsonify({"ok": True, "produto": atualizado, "duplicado": True}), 200
     produto = produtos_db.criar(dados)
     return jsonify({"ok": True, "produto": produto}), 201
 
@@ -866,6 +943,13 @@ def admin_salvar_config():
     return jsonify({"ok": True, "config": config_site.salvar(novos)})
 
 
+@app.route("/api/upsell", methods=["GET"])
+def get_upsell():
+    """Produtos marcados como sugestão para o carrinho/checkout."""
+    sugeridos = [p for p in produtos_db.listar()
+                 if p.get("ativo", True) and p.get("sugerir_carrinho")]
+    return jsonify({"ok": True, "produtos": sugeridos[:6]})
+
 @app.route("/api/produto/<pid>", methods=["GET"])
 def get_produto_publico(pid):
     """Produto individual + avaliações para a página de detalhe."""
@@ -884,16 +968,35 @@ def get_produto_publico(pid):
 
 @app.route("/api/avaliacao-publica", methods=["POST"])
 def avaliacao_publica():
-    """Avaliação enviada pela página do produto (entra pendente de moderação)."""
+    """Avaliação pela página do produto — SÓ com conta criada. Dá cashback."""
     d = request.json or {}
     produto_id = d.get("produto_id", "")
     if not produto_id:
         return jsonify({"ok": False, "erro": "produto inválido"}), 400
+
+    # Exige conta de comprador
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    dados_user = usuarios.verificar_token(token)
+    if not dados_user:
+        return jsonify({"ok": False, "erro": "Faça login para avaliar", "precisa_login": True}), 401
+
+    email = dados_user["email"]
+    user = usuarios.obter(email)
+    d["nome"] = user.get("nome", "Cliente")  # nome real (mascarado na exibição)
     d["pedido_id"] = ""
     av = avaliacoes.criar(produto_id, d)
-    # Marca como pendente (admin aprova)
-    avaliacoes.definir_aprovacao(av["id"], False)
-    return jsonify({"ok": True})
+    avaliacoes.definir_aprovacao(av["id"], False)  # pendente de moderação
+
+    # Cashback (uma vez por produto)
+    resp = {"ok": True}
+    cfg = config_site.obter()
+    if cfg.get("cashback_ativo") and not usuarios.ja_avaliou_produto(email, produto_id):
+        valor = float(cfg.get("cashback_por_avaliacao", 5))
+        novo = usuarios.adicionar_cashback(email, valor, f"Avaliação do produto")
+        usuarios.marcar_avaliou(email, produto_id)
+        resp["cashback_ganho"] = valor
+        resp["cashback_total"] = novo
+    return jsonify(resp)
 
 
 @app.route("/api/produtos", methods=["GET"])

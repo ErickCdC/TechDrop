@@ -448,6 +448,12 @@ function abrirTab(t){
 
 // MODAL AVALIAR
 function abrirModalAvaliar(){
+  // Exige conta criada
+  if(!localStorage.getItem("user_token")){
+    if(confirm("Você precisa estar logado para avaliar e ganhar cashback. Ir para o login?"))
+      window.location.href="/minha-conta";
+    return;
+  }
   document.getElementById("stars-input").innerHTML=[1,2,3,4,5].map(n=>`<span data-n="${n}" onclick="setNota(${n})">★</span>`).join("");
   setNota(5);
   document.getElementById("modal-avaliar").classList.add("show");

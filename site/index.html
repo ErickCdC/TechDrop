@@ -90,6 +90,15 @@
     .sec-head a{font-size:14px;font-weight:600;color:var(--primary);}
 
     /* DESTAQUE */
+    .carousel-nav{display:flex;gap:8px;}
+    .cnav{width:38px;height:38px;border-radius:50%;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink);transition:.15s;}
+    .cnav:hover{border-color:var(--primary);color:var(--primary);}
+    .carousel-viewport{overflow:hidden;border-radius:18px;}
+    .carousel-track{display:flex;transition:transform .4s cubic-bezier(.4,0,.2,1);}
+    .carousel-track > .destaque{min-width:100%;border-radius:0;border-left:none;border-right:none;}
+    .carousel-dots{display:flex;gap:6px;justify-content:center;margin-top:16px;}
+    .carousel-dots span{width:8px;height:8px;border-radius:50%;background:#cbd5e1;cursor:pointer;transition:.15s;}
+    .carousel-dots span.on{background:var(--primary);width:22px;border-radius:4px;}
     .destaque{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;}
     .destaque-media{background:var(--bg-soft);display:flex;align-items:center;justify-content:center;padding:40px;}
     .destaque-media img{width:100%;max-width:380px;aspect-ratio:1;object-fit:contain;}
@@ -254,22 +263,20 @@
   </div>
 </div>
 
-<!-- DESTAQUE -->
+<!-- DESTAQUE (carrossel) -->
 <section id="destaque-wrap" style="display:none;">
   <div class="container">
-    <div class="sec-head"><h2 id="titulo-destaque">Em destaque</h2></div>
-    <div class="destaque">
-      <div class="destaque-media"><img id="dest-img" src="" alt=""/></div>
-      <div class="destaque-body">
-        <span class="pill">Mais procurado</span>
-        <h3 id="dest-titulo"></h3>
-        <div class="rating"><span class="stars" id="dest-stars"></span><span id="dest-aval"></span></div>
-        <div class="price-row"><span class="price-now" id="dest-preco"></span><span class="price-old" id="dest-preco-de"></span></div>
-        <div class="price-parc" id="dest-parc"></div>
-        <button class="btn btn-primary" id="dest-btn" onclick="adicionarDestaque()">Adicionar ao carrinho</button>
-        <a id="dest-link" href="#" style="margin-top:14px;font-size:14px;font-weight:600;color:var(--primary);">Ver detalhes do produto →</a>
+    <div class="sec-head">
+      <h2 id="titulo-destaque">Em destaque</h2>
+      <div class="carousel-nav">
+        <button class="cnav" onclick="destSlide(-1)" aria-label="Anterior"><svg class="ic" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+        <button class="cnav" onclick="destSlide(1)" aria-label="Próximo"><svg class="ic" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
       </div>
     </div>
+    <div class="carousel-viewport">
+      <div class="carousel-track" id="dest-track"></div>
+    </div>
+    <div class="carousel-dots" id="dest-dots"></div>
   </div>
 </section>
 
@@ -415,26 +422,50 @@ async function carregarProdutos(){
       document.getElementById("grid").innerHTML='<p style="color:var(--muted)">Nenhum produto disponível.</p>';
       return;
     }
-    const dest = d.produtos.find(p=>p.destaque) || d.produtos[0];
-    renderDestaque(dest);
-    renderGrade(d.produtos.filter(p=>p.id!==dest.id));
+    // Múltiplos destaques (carrossel). Se nenhum marcado, usa o primeiro.
+    const destaques = d.produtos.filter(p=>p.destaque);
+    const lista = destaques.length ? destaques : [d.produtos[0]];
+    renderDestaque(lista);
+    const idsDest = new Set(lista.map(p=>p.id));
+    renderGrade(d.produtos.filter(p=>!idsDest.has(p.id)));
   }catch(e){}
 }
 function estrelas(n){const c=Math.round(n||5);return "★".repeat(c)+"☆".repeat(5-c);}
 
-function renderDestaque(p){
-  _destaque=p;
+let _destaques=[], _destIdx=0, _destTimer=null;
+function renderDestaque(produtos){
+  _destaques=produtos; _destIdx=0;
   document.getElementById("destaque-wrap").style.display="block";
-  document.getElementById("dest-img").src=p.imagem||"";
-  document.getElementById("dest-titulo").textContent=p.titulo;
-  document.getElementById("dest-stars").textContent=estrelas(p.avaliacao);
-  document.getElementById("dest-aval").textContent=`${p.avaliacao||4.8} · ${p.vendas||0} ${p.tem_reviews_reais?'avaliações':'vendidos'}`;
-  document.getElementById("dest-preco").textContent=fmt(p.preco_venda);
-  const pde=p.preco_de||Math.round(p.preco_venda*1.6);
-  document.getElementById("dest-preco-de").textContent=fmt(pde);
-  document.getElementById("dest-parc").textContent=`em até 3x de ${fmt(p.preco_venda/3)} sem juros`;
-  document.getElementById("dest-link").href=`/produto?id=${p.id}`;
+  const track=document.getElementById("dest-track");
+  track.innerHTML=produtos.map(p=>{
+    const pde=p.preco_de||Math.round(p.preco_venda*1.6);
+    return `
+    <div class="destaque">
+      <div class="destaque-media"><img src="${p.imagem||''}" alt="${p.titulo}" onerror="this.src='https://placehold.co/400?text=Produto'"/></div>
+      <div class="destaque-body">
+        <span class="pill">Em destaque</span>
+        <h3>${p.titulo}</h3>
+        <div class="rating"><span class="stars">${estrelas(p.avaliacao)}</span><span>${p.avaliacao||4.8} · ${p.vendas||0} ${p.tem_reviews_reais?'avaliações':'vendidos'}</span></div>
+        <div class="price-row"><span class="price-now">${fmt(p.preco_venda)}</span><span class="price-old">${fmt(pde)}</span></div>
+        <div class="price-parc">em até 3x de ${fmt(p.preco_venda/3)} sem juros</div>
+        <button class="btn btn-primary" onclick="addCarrinho('${p.id}','${(p.titulo||'').replace(/'/g,'')}','${p.imagem||''}',${p.preco_venda})">Adicionar ao carrinho</button>
+        <a href="/produto?id=${p.id}" style="margin-top:14px;font-size:14px;font-weight:600;color:var(--primary);">Ver detalhes do produto →</a>
+      </div>
+    </div>`;
+  }).join("");
+  // Bolinhas
+  document.getElementById("dest-dots").innerHTML=produtos.map((_,i)=>`<span class="${i===0?'on':''}" onclick="destGoto(${i})"></span>`).join("");
+  document.querySelector(".carousel-nav").style.display = produtos.length>1?"flex":"none";
+  destGoto(0);
+  if(produtos.length>1) _iniciarAutoDest();
 }
+function destGoto(i){
+  _destIdx=(i+_destaques.length)%_destaques.length;
+  document.getElementById("dest-track").style.transform=`translateX(-${_destIdx*100}%)`;
+  document.querySelectorAll("#dest-dots span").forEach((d,j)=>d.classList.toggle("on",j===_destIdx));
+}
+function destSlide(dir){destGoto(_destIdx+dir);_iniciarAutoDest();}
+function _iniciarAutoDest(){clearInterval(_destTimer);_destTimer=setInterval(()=>destGoto(_destIdx+1),5000);}
 function renderGrade(produtos){
   document.getElementById("grid").innerHTML = produtos.map(p=>{
     const pde=p.preco_de||Math.round(p.preco_venda*1.6);
@@ -463,22 +494,34 @@ function renderGrade(produtos){
 function irProduto(id){ window.location.href=`/produto?id=${id}`; }
 
 // ── AVALIAÇÕES ──────────────────────────────────────────────────────────────
+let _reviews=[], _revIdx=0, _revTimer=null;
 async function carregarReviews(){
   try{
     const d = await (await fetch("/api/avaliacoes/destaque")).json();
     if(!d.ok || !d.avaliacoes.length) return;
+    _reviews=d.avaliacoes;
     document.getElementById("secao-reviews").style.display="block";
-    document.getElementById("reviews-grid").innerHTML = d.avaliacoes.slice(0,3).map(a=>`
-      <div class="review">
+    renderReviewsHome();
+    if(_reviews.length>3){clearInterval(_revTimer);_revTimer=setInterval(()=>{_revIdx=(_revIdx+1)%_reviews.length;renderReviewsHome();},4500);}
+  }catch(e){}
+}
+function renderReviewsHome(){
+  // mostra 3 a partir do índice atual (rotativo)
+  const tres=[];
+  for(let k=0;k<Math.min(3,_reviews.length);k++) tres.push(_reviews[(_revIdx+k)%_reviews.length]);
+  document.getElementById("reviews-grid").innerHTML = tres.map(a=>{
+    const link = a.produto_id ? `onclick="window.location.href='/produto?id=${a.produto_id}'" style="cursor:pointer;"` : '';
+    return `
+      <div class="review" ${link}>
         <div class="review-top">
-          <div class="avatar">${(a.nome||'C')[0].toUpperCase()}</div>
+          <div class="avatar">${(a.nome||'A')[0].toUpperCase()}</div>
           <div><div class="name">${a.nome}</div><div class="verified">Compra verificada</div></div>
         </div>
         <div class="stars">${estrelas(a.nota)}</div>
         <p>${a.texto||'Recomendo!'}</p>
         ${a.foto?`<div class="review-photo"><img src="${a.foto}" loading="lazy"/></div>`:''}
-      </div>`).join("");
-  }catch(e){}
+      </div>`;
+  }).join("");
 }
 
 // ── CARRINHO ────────────────────────────────────────────────────────────────

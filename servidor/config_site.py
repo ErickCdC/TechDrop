@@ -46,6 +46,11 @@ PADRAO = {
     "rodape_sobre":   "Curadoria de tecnologia com bom custo-benefício e entrega para todo o Brasil.",
     "rodape_email":   "contato@sualoja.com.br",
     "rodape_cnpj":    "",
+
+    # Cashback / fidelidade
+    "cashback_ativo":        True,
+    "cashback_por_avaliacao": 5.0,    # R$ que o cliente ganha por avaliar
+    "cashback_uso_max_pct":   30,     # % máximo do pedido que pode pagar com cashback
 }
 
 

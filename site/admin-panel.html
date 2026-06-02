@@ -329,8 +329,15 @@
       <input type="text" id="prod-titulo" placeholder="Ex: Fone Bluetooth ANC Pro"/>
     </div>
     <div class="field">
-      <label>Descrição</label>
+      <label>Descrição
+        <button type="button" onclick="gerarDescricaoIA()" id="btn-desc-ia"
+          style="float:right;background:var(--accent)20;color:var(--accent);border:1px solid var(--accent)40;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">
+          ✨ Gerar descrição com IA
+        </button>
+      </label>
+      <input type="hidden" id="prod-headline"/>
       <textarea id="prod-descricao" placeholder="Características principais do produto..."></textarea>
+      <div id="desc-ia-status" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
     </div>
     <div class="field-row">
       <div class="field">
@@ -431,9 +438,16 @@
         <label>⭐ Produto em destaque</label>
         <select id="prod-destaque">
           <option value="false">Não</option>
-          <option value="true">Sim — aparece no topo da loja</option>
+          <option value="true">Sim — aparece no carrossel do topo</option>
         </select>
       </div>
+    </div>
+    <div class="field">
+      <label>🛒 Sugerir no carrinho/checkout</label>
+      <select id="prod-sugerir">
+        <option value="false">Não</option>
+        <option value="true">Sim — sugere este produto na hora de fechar a compra</option>
+      </select>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
@@ -572,43 +586,90 @@ async function salvarConfig(){
 }
 
 // ── AVALIAÇÕES (ADMIN) ────────────────────────────────────────────────────────
+let _avaliacoesAll = [], _filtroEstrela = 0;
 async function carregarAvaliacoesAdmin() {
   const el = document.getElementById("avaliacoes-lista");
   el.innerHTML = '<div style="color:var(--muted);">Carregando...</div>';
   try {
     const r = await API("/api/admin/avaliacoes");
     const d = await r.json();
-    if (!d.ok || !d.avaliacoes?.length) {
-      el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Nenhuma avaliação ainda.</div>';
-      return;
-    }
-    el.innerHTML = d.avaliacoes.map(a => {
-      const estrelas = "★".repeat(a.nota) + "☆".repeat(5-a.nota);
-      return `
-      <div style="background:var(--card);border:1px solid ${a.aprovado?'var(--border)':'var(--red)'};border-radius:12px;padding:16px;display:flex;gap:14px;">
-        ${a.foto ? `<img src="${a.foto}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;flex-shrink:0;"/>` : ''}
-        <div style="flex:1;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <strong style="font-size:14px;">${a.nome}</strong>
-            <span style="color:#f59e0b;">${estrelas}</span>
-          </div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">${a.texto||'(sem texto)'}</p>
-          <div style="display:flex;gap:8px;">
-            <button onclick="toggleAprovacao('${a.id}',${!a.aprovado})"
-              style="background:${a.aprovado?'var(--yellow)20':'var(--green)20'};color:${a.aprovado?'var(--yellow)':'var(--green)'};border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">
-              ${a.aprovado ? '👁️ Ocultar' : '✅ Aprovar'}
-            </button>
-            <button onclick="deletarAvaliacao('${a.id}')"
-              style="background:var(--red)20;color:var(--red);border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">
-              🗑️ Excluir
-            </button>
-          </div>
-        </div>
-      </div>`;
-    }).join("");
+    _avaliacoesAll = d.avaliacoes || [];
+    renderAvaliacoesAdmin();
   } catch(e) {
     el.innerHTML = '<div style="color:var(--red);">Erro ao carregar.</div>';
   }
+}
+
+function renderAvaliacoesAdmin() {
+  const el = document.getElementById("avaliacoes-lista");
+  let lista = _avaliacoesAll;
+  if (_filtroEstrela > 0) lista = lista.filter(a => a.nota <= _filtroEstrela);
+
+  // Barra de ferramentas
+  const toolbar = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <span style="font-size:13px;color:var(--muted);">Filtrar:</span>
+      ${[0,1,2,3].map(n=>`<button onclick="setFiltroEstrela(${n})"
+        style="background:${_filtroEstrela===n?'var(--accent)':'var(--bg)'};color:${_filtroEstrela===n?'#fff':'var(--text)'};border:1px solid var(--border);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+        ${n===0?'Todas':`≤ ${n}★`}</button>`).join("")}
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button onclick="removerDuplicadas()" style="background:var(--yellow)20;color:var(--yellow);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">🧹 Remover duplicadas</button>
+        ${_filtroEstrela>0?`
+        <button onclick="loteVisivel('ocultar')" style="background:var(--accent)20;color:var(--accent);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">👁️ Ocultar filtradas (${lista.length})</button>
+        <button onclick="loteVisivel('deletar')" style="background:var(--red)20;color:var(--red);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">🗑️ Excluir filtradas (${lista.length})</button>`:''}
+      </div>
+    </div>`;
+
+  if (!lista.length) {
+    el.innerHTML = toolbar + '<div style="color:var(--muted);text-align:center;padding:40px;">Nenhuma avaliação neste filtro.</div>';
+    return;
+  }
+
+  el.innerHTML = toolbar + lista.map(a => {
+    const estrelas = "★".repeat(a.nota) + "☆".repeat(5-a.nota);
+    return `
+    <div style="background:var(--card);border:1px solid ${a.aprovado?'var(--border)':'var(--red)'};border-radius:12px;padding:16px;display:flex;gap:14px;">
+      ${a.foto ? `<img src="${a.foto}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;flex-shrink:0;"/>` : ''}
+      <div style="flex:1;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <strong style="font-size:14px;">${a.nome}</strong>
+          <span style="color:#f59e0b;">${estrelas}</span>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">${a.texto||'(sem texto)'}</p>
+        <div style="display:flex;gap:8px;">
+          <button onclick="toggleAprovacao('${a.id}',${!a.aprovado})"
+            style="background:${a.aprovado?'var(--yellow)20':'var(--green)20'};color:${a.aprovado?'var(--yellow)':'var(--green)'};border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">
+            ${a.aprovado ? '👁️ Ocultar' : '✅ Aprovar'}
+          </button>
+          <button onclick="deletarAvaliacao('${a.id}')"
+            style="background:var(--red)20;color:var(--red);border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">
+            🗑️ Excluir
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function setFiltroEstrela(n){ _filtroEstrela=n; renderAvaliacoesAdmin(); }
+
+async function removerDuplicadas(){
+  const r=await API("/api/admin/avaliacoes/remover-duplicadas",{method:"POST"});
+  const d=await r.json();
+  toast(`${d.removidas} avaliações duplicadas removidas`);
+  carregarAvaliacoesAdmin();
+}
+
+async function loteVisivel(acao){
+  let lista=_avaliacoesAll;
+  if(_filtroEstrela>0) lista=lista.filter(a=>a.nota<=_filtroEstrela);
+  const ids=lista.map(a=>a.id);
+  const txt=acao==="deletar"?"excluir":"ocultar";
+  if(!confirm(`Confirma ${txt} ${ids.length} avaliações filtradas?`))return;
+  const r=await API("/api/admin/avaliacoes/lote",{method:"POST",body:JSON.stringify({ids,acao})});
+  const d=await r.json();
+  toast(`${d.afetadas} avaliações processadas`);
+  carregarAvaliacoesAdmin();
 }
 
 async function toggleAprovacao(id, aprovado) {
@@ -735,6 +796,8 @@ function abrirModalProduto(){
   document.getElementById("prod-link").value="";
   document.getElementById("prod-ativo").value="true";
   document.getElementById("prod-destaque").value="false";
+  document.getElementById("prod-sugerir").value="false";
+  document.getElementById("prod-headline").value="";
   document.getElementById("foto-preview-img").style.display="none";
   document.getElementById("foto-placeholder").style.display="block";
   document.getElementById("modal-produto").classList.add("show");
@@ -752,6 +815,9 @@ function editarProduto(p){
   document.getElementById("prod-link").value=p.link_aliexpress||"";
   document.getElementById("prod-ativo").value=String(p.ativo!==false);
   document.getElementById("prod-destaque").value=String(p.destaque===true);
+  document.getElementById("prod-sugerir").value=String(p.sugerir_carrinho===true);
+  document.getElementById("prod-headline").value=p.headline||"";
+  _especificacoesAtual = p.especificacoes||[];
   previewUrl(p.imagem||"");
   document.getElementById("modal-produto").classList.add("show");
 }
@@ -780,6 +846,29 @@ async function uploadFoto(input){
   } else { toast(d.erro||"Erro no upload","erro"); }
 }
 
+// ── DESCRIÇÃO COM IA ──────────────────────────────────────────────────────────
+let _especificacoesAtual = [];
+async function gerarDescricaoIA(){
+  const titulo = document.getElementById("prod-titulo").value.trim();
+  if(!titulo){toast("Preencha o nome do produto primeiro","erro");return;}
+  const btn=document.getElementById("btn-desc-ia");
+  const status=document.getElementById("desc-ia-status");
+  btn.disabled=true; const txtOrig=btn.textContent; btn.textContent="Gerando...";
+  status.textContent="A IA está criando a descrição com base nas informações do anúncio...";
+  try{
+    const r=await API("/api/admin/gerar-descricao",{method:"POST",body:JSON.stringify({
+      titulo, especificacoes:_especificacoesAtual, descricao:document.getElementById("prod-descricao").value
+    })});
+    const d=await r.json();
+    if(d.ok){
+      document.getElementById("prod-descricao").value=d.descricao_html||"";
+      document.getElementById("prod-headline").value=d.headline||"";
+      status.innerHTML=`<span style="color:var(--green)">✓ Descrição gerada! Headline: <strong>${d.headline}</strong></span>`;
+    }else{ status.innerHTML=`<span style="color:var(--red)">Erro: ${d.erro}</span>`; }
+  }catch(e){ status.textContent="Erro de conexão."; }
+  finally{ btn.disabled=false; btn.textContent=txtOrig; }
+}
+
 async function salvarProduto(){
   const id=document.getElementById("prod-id").value;
   const dados={
@@ -793,6 +882,8 @@ async function salvarProduto(){
     categoria:    document.getElementById("prod-categoria").value,
     ativo:        document.getElementById("prod-ativo").value==="true",
     destaque:     document.getElementById("prod-destaque").value==="true",
+    sugerir_carrinho: document.getElementById("prod-sugerir").value==="true",
+    headline:     document.getElementById("prod-headline").value,
   };
   if(!dados.titulo){toast("Nome do produto é obrigatório","erro");return;}
   if(!dados.preco_venda){toast("Preço de venda é obrigatório","erro");return;}

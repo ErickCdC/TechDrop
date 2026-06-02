@@ -86,6 +86,55 @@ def atualizar_endereco(email: str, endereco: dict):
         db.put(COLECAO, email.lower().strip(), u)
 
 
+def obter_saldo(email: str) -> float:
+    u = db.get(COLECAO, email.lower().strip())
+    return round(u.get("cashback", 0), 2) if u else 0.0
+
+
+def adicionar_cashback(email: str, valor: float, motivo: str = "") -> float:
+    email = email.lower().strip()
+    u = db.get(COLECAO, email)
+    if not u:
+        return 0.0
+    u["cashback"] = round(u.get("cashback", 0) + valor, 2)
+    u.setdefault("cashback_historico", []).append({
+        "valor": valor, "motivo": motivo, "data": datetime.now().isoformat()
+    })
+    db.put(COLECAO, email, u)
+    return u["cashback"]
+
+
+def usar_cashback(email: str, valor: float) -> bool:
+    email = email.lower().strip()
+    u = db.get(COLECAO, email)
+    if not u or u.get("cashback", 0) < valor:
+        return False
+    u["cashback"] = round(u.get("cashback", 0) - valor, 2)
+    u.setdefault("cashback_historico", []).append({
+        "valor": -valor, "motivo": "Usado em compra", "data": datetime.now().isoformat()
+    })
+    db.put(COLECAO, email, u)
+    return True
+
+
+def ja_avaliou_produto(email: str, produto_id: str) -> bool:
+    """Evita dar cashback duplicado pela mesma avaliação."""
+    u = db.get(COLECAO, email.lower().strip())
+    if not u:
+        return False
+    return produto_id in u.get("produtos_avaliados", [])
+
+
+def marcar_avaliou(email: str, produto_id: str):
+    email = email.lower().strip()
+    u = db.get(COLECAO, email)
+    if u:
+        u.setdefault("produtos_avaliados", [])
+        if produto_id not in u["produtos_avaliados"]:
+            u["produtos_avaliados"].append(produto_id)
+            db.put(COLECAO, email, u)
+
+
 def pedidos_do_usuario(email: str) -> list[dict]:
     """Retorna os pedidos vinculados ao e-mail do comprador."""
     email = email.lower().strip()
