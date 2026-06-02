@@ -361,21 +361,26 @@ async function extrairDadosPagina() {
       });
     }
 
-    // Tenta várias páginas com filtro geral
-    for (let page = 1; page <= 5; page++) {
+    // fetch com timeout — nunca trava a captura
+    async function fetchT(url, ms) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), ms);
+      try { return await fetch(url, { credentials: "include", signal: ctrl.signal }); }
+      finally { clearTimeout(t); }
+    }
+    // Busca avaliações (máx 3 páginas, com timeout)
+    for (let page = 1; page <= 3; page++) {
       let achou = false;
-      for (const filtro of ["all", "image"]) {
-        const url = `https://feedback.aliexpress.com/pc/searchEvaluation.do?productId=${resultado.pid}&lang=pt_BR&country=BR&page=${page}&pageSize=20&filter=${filtro}&sort=complex_default`;
-        try {
-          const resp = await fetch(url, { credentials: "include" });
-          const json = await resp.json();
-          const lista = (json.data && json.data.evaViewList) || json.evaViewList ||
-                        (json.data && json.data.evaluationList) || [];
-          if (lista.length) { achou = true; lista.forEach(addReview); }
-        } catch (e) {}
-      }
-      if (!achou) break;             // sem mais páginas
-      if (resultado.reviews.length >= 40) break;
+      try {
+        const url = `https://feedback.aliexpress.com/pc/searchEvaluation.do?productId=${resultado.pid}&lang=pt_BR&country=BR&page=${page}&pageSize=20&filter=all&sort=complex_default`;
+        const resp = await fetchT(url, 4000);
+        const json = await resp.json();
+        const lista = (json.data && json.data.evaViewList) || json.evaViewList ||
+                      (json.data && json.data.evaluationList) || [];
+        if (lista.length) { achou = true; lista.forEach(addReview); }
+      } catch (e) {}
+      if (!achou) break;
+      if (resultado.reviews.length >= 30) break;
     }
   }
 
@@ -384,7 +389,10 @@ async function extrairDadosPagina() {
     try {
       let url = resultado._desc_url;
       if (url.startsWith("//")) url = "https:" + url;
-      const html = await (await fetch(url, { credentials: "include" })).text();
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 4000);
+      const html = await (await fetch(url, { credentials: "include", signal: ctrl.signal })).text();
+      clearTimeout(tid);
       // Imagens da descrição (fotos detalhadas, tabelas em imagem)
       const imgs = [];
       for (const m of html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)) {
@@ -412,7 +420,12 @@ function renderPreview(d) {
   const nRev = (d.reviews || []).length;
   const nFoto = (d.reviews || []).filter(r => r.fotos && r.fotos.length).length;
   const elRev = document.getElementById("prev-reviews");
-  if (elRev) elRev.textContent = nRev ? `⭐ ${nRev} avaliações capturadas (${nFoto} com foto)` : "Sem avaliações encontradas";
+  const nVar = (d.variantes || []).reduce((s, v) => s + (v.opcoes ? v.opcoes.length : 0), 0);
+  const nSpec = (d.especificacoes || []).length;
+  const nDescImg = (d.descricao_imagens || []).length;
+  if (elRev) elRev.innerHTML =
+    `⭐ ${nRev} avaliações (${nFoto} c/ foto)<br>` +
+    `🎨 ${(d.variantes||[]).length} variações (${nVar} opções) · 📋 ${nSpec} specs · 🖼️ ${nDescImg} imgs descrição`;
 
   const precoBrl = d.preco_brl || 0;
   document.getElementById("prev-preco").textContent =

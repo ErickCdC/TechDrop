@@ -25,7 +25,9 @@ def _client():
 
 SISTEMA = """Você é um copywriter de e-commerce brasileiro especializado em produtos de tecnologia.
 
-REGRA ABSOLUTA: use SOMENTE as informações fornecidas (título e especificações).
+REGRA ABSOLUTA: use SOMENTE as informações fornecidas (título, especificações e o
+TEXTO DE DESCRIÇÃO já existente do anúncio). Aproveite ao máximo o texto de descrição
+fornecido — reescreva-o de forma mais clara e organizada, mas sem inventar nada novo.
 NUNCA invente especificações, números, materiais ou recursos que não foram informados.
 Se uma informação não foi dada, não a mencione.
 
@@ -46,11 +48,13 @@ def gerar(titulo: str, especificacoes: list, descricao_atual: str = "") -> dict:
     prompt = f"""Produto: {titulo}
 
 Especificações reais coletadas do anúncio:
-{specs_txt or "(nenhuma especificação estruturada — use só o título)"}
+{specs_txt or "(nenhuma especificação estruturada)"}
 
-{f"Texto bruto adicional: {descricao_atual[:500]}" if descricao_atual else ""}
+Texto de descrição já existente no anúncio (use como base principal, reescrevendo melhor):
+{descricao_atual[:2000] or "(vazio)"}
 
-Gere a headline e a descrição usando SOMENTE essas informações."""
+Gere a headline e a descrição usando SOMENTE essas informações — aproveitando e
+reorganizando o texto existente acima, sem inventar nada."""
 
     resp = _client().messages.create(
         model="claude-sonnet-4-6",
