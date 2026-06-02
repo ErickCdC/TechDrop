@@ -198,6 +198,35 @@
 </div>
 
 <script>
+// ── EXIGE CONTA PARA FINALIZAR ────────────────────────────────────────────────
+(async function exigirLogin(){
+  const token = localStorage.getItem("user_token");
+  if(!token){
+    // guarda intenção e manda criar conta/login
+    localStorage.setItem("redirect_apos_login", "/checkout.html");
+    alert("Para finalizar a compra é preciso ter uma conta. Vamos criar a sua — leva 30 segundos!");
+    window.location.href = "/minha-conta";
+    return;
+  }
+  // valida o token
+  try{
+    const r = await fetch("/api/conta/me", {headers:{"Authorization":"Bearer "+token}});
+    if(!r.ok){
+      localStorage.removeItem("user_token");
+      localStorage.setItem("redirect_apos_login", "/checkout.html");
+      window.location.href = "/minha-conta";
+    } else {
+      // preenche nome/email do usuário automaticamente
+      const d = await r.json();
+      if(d.ok && d.usuario){
+        const n=document.getElementById("nome"), e=document.getElementById("email");
+        if(n && !n.value) n.value = d.usuario.nome || "";
+        if(e && !e.value) e.value = d.usuario.email || "";
+      }
+    }
+  }catch(e){}
+})();
+
 // ── CARRINHO (lido do localStorage) ──────────────────────────────────────────
 const carrinho = JSON.parse(localStorage.getItem("carrinho") || "[]");
 let metodoPagamento = "pix";
@@ -240,7 +269,8 @@ async function aplicarCupom() {
   if (!codigo) return;
   try {
     const r = await fetch("/api/cupom/validar", {
-      method: "POST", headers: {"Content-Type":"application/json"},
+      method: "POST",
+      headers: {"Content-Type":"application/json", "Authorization":"Bearer "+(localStorage.getItem("user_token")||"")},
       body: JSON.stringify({codigo, subtotal: _subtotal}),
     });
     const d = await r.json();
@@ -333,7 +363,7 @@ async function finalizarPedido() {
   try {
     const resp = await fetch("/api/checkout", {
       method:  "POST",
-      headers: {"Content-Type": "application/json"},
+      headers: {"Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem("user_token")||"")},
       body:    JSON.stringify(payload),
     });
     const data = await resp.json();

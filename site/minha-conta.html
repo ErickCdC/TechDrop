@@ -180,6 +180,13 @@ function statusInfo(p) {
 }
 
 async function carregarPainel() {
+  // Se veio do checkout (ou outra página), volta pra lá após logar
+  const destino = localStorage.getItem("redirect_apos_login");
+  if (destino) {
+    localStorage.removeItem("redirect_apos_login");
+    window.location.href = destino;
+    return;
+  }
   document.getElementById("auth").style.display = "none";
   document.getElementById("painel").style.display = "block";
   document.getElementById("user-nome").textContent = localStorage.getItem("user_nome") || "cliente";
