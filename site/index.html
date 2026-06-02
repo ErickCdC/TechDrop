@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>TechDrop — Tecnologia com bom custo-benefício</title>
   <meta name="description" content="Fones, carregadores e acessórios tech com entrega para todo o Brasil."/>
+  <link rel="icon" href="/logo.png" type="image/png"/>
 
   <!-- Pixels de anúncios: cole seu ID e descomente para ativar -->
   <!-- <script>/* Meta Pixel aqui */</script> -->
@@ -204,7 +205,7 @@
 
 <header>
   <div class="container header-row">
-    <a href="/" class="logo" id="logo">Tech<span>Drop</span></a>
+    <a href="/" class="logo" id="logo"><img src="/logo.png" alt="TechDrop" style="height:40px;width:auto;display:block;"/></a>
     <div class="search">
       <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       <input type="text" placeholder="Buscar produtos..." id="busca"/>
@@ -385,7 +386,9 @@ function aplicarConfig(c){
   if(c.cor_destaque){document.documentElement.style.setProperty('--primary-dark',c.cor_destaque);}
   // Logo
   if(c.loja_nome){
-    document.getElementById("logo").innerHTML = c.loja_nome.replace(/(\S+)$/, '<span>$1</span>');
+    // O header usa a imagem da logo; só atualiza o alt e o rodapé
+    const logoImg = document.querySelector("#logo img");
+    if(logoImg) logoImg.alt = c.loja_nome;
     set("logo-footer", c.loja_nome);
     set("rodape-copy", `© 2026 ${c.loja_nome}. Todos os direitos reservados.`);
   }
