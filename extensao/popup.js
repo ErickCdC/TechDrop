@@ -132,6 +132,49 @@ async function extrairDadosPagina() {
     }
   }
 
+  // ── BUSCA POR CHAVE (layouts novos onde runParams não existe) ──────────────
+  // Extrai o valor JSON (objeto ou array) de uma chave específica em qualquer script.
+  function extrairBalGen(s, start) {
+    const open = s[start], close = open === "{" ? "}" : "]";
+    let depth = 0, inStr = false, esc = false;
+    for (let x = start; x < s.length; x++) {
+      const ch = s[x];
+      if (inStr) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') inStr = false; }
+      else { if (ch === '"') inStr = true; else if (ch === open) depth++; else if (ch === close) { depth--; if (depth === 0) return s.slice(start, x + 1); } }
+    }
+    return null;
+  }
+  function buscarChave(chave) {
+    const alvo = '"' + chave + '"';
+    for (const s of document.scripts) {
+      const t = s.textContent || "";
+      let i = t.indexOf(alvo);
+      while (i !== -1) {
+        let j = t.indexOf(":", i + alvo.length);
+        if (j !== -1) {
+          let k = j + 1;
+          while (k < t.length && /\s/.test(t[k])) k++;
+          if (t[k] === "{" || t[k] === "[") {
+            const val = extrairBalGen(t, k);
+            if (val) { try { return JSON.parse(val); } catch (e) {} }
+          }
+        }
+        i = t.indexOf(alvo, i + alvo.length);
+      }
+    }
+    return null;
+  }
+  // Se não achou DATA OU está incompleto, monta a partir das chaves
+  if (!DATA || !DATA.skuModule) {
+    DATA = DATA || {};
+    const skuProps = buscarChave("productSKUPropertyList");
+    if (skuProps) DATA.skuModule = { productSKUPropertyList: skuProps, skuPriceList: buscarChave("skuPriceList") || [] };
+    if (!DATA.priceModule)       DATA.priceModule = buscarChave("priceModule") || undefined;
+    if (!DATA.specsModule)       DATA.specsModule = buscarChave("specsModule") || undefined;
+    if (!DATA.descriptionModule) DATA.descriptionModule = buscarChave("descriptionModule") || undefined;
+    if (!DATA.titleModule)       DATA.titleModule = buscarChave("titleModule") || undefined;
+  }
+
   function num(x) {
     if (x == null) return 0;
     if (typeof x === "number") return x;
@@ -211,17 +254,28 @@ async function extrairDadosPagina() {
     }
   }
 
-  // PREÇO via DOM (fallback se JSON não trouxe)
+  // PREÇO via meta tag
+  if (!resultado.preco_brl) {
+    const meta = document.querySelector("meta[property='og:price:amount'], meta[itemprop='price']");
+    if (meta) resultado.preco_brl = num(meta.content);
+  }
+  // PREÇO via DOM (procura o R$ visível no topo da página)
   if (!resultado.preco_brl) {
     for (const sel of [".product-price-value","[class*='price--current']","[class*='price_current']",
                        ".pdp-comp-price-current","[class*='uniform-banner-box-price']",
-                       "[class*='product-price-current']","[class*='es--wrap']"]) {
+                       "[class*='product-price-current']","[class*='es--wrap']","[class*='Price']",
+                       "[class*='price--originalText']","[class*='currentPriceText']"]) {
       const el = document.querySelector(sel);
       if (el) { const v = num(el.textContent); if (v > 0) { resultado.preco_brl = v; break; } }
     }
   }
+  // Último recurso: primeiro "R$ X,XX" que aparecer no topo
+  if (!resultado.preco_brl) {
+    const m = document.body.innerText.match(/R\$\s*([\d.]+,\d{2})/);
+    if (m) resultado.preco_brl = num(m[1]);
+  }
   if (!resultado.preco_original_brl) {
-    const o = document.querySelector("[class*='price--del'], [class*='price-del'], [class*='price--lineThrough']");
+    const o = document.querySelector("[class*='price--del'], [class*='price-del'], [class*='price--lineThrough'], [class*='originalText']");
     if (o) resultado.preco_original_brl = num(o.textContent);
   }
 
@@ -286,30 +340,41 @@ async function extrairDadosPagina() {
 
   resultado.imagens = resultado.imagens.slice(0, 10);
 
-  // VARIANTES via DOM — SEMPRE roda e MESCLA (garante TODAS as opções visíveis)
+  // VARIANTES via DOM — SEMPRE roda e MESCLA (layout atual: sku-item--wrap)
   try {
     const gruposVariante = document.querySelectorAll([
+      "[class*='sku-item--wrap']",
       "[class*='sku-item--property']",
       "[class*='product-prop']",
       ".pdp-comp-property",
       "[class*='sku-property-list']",
+      "[class*='SkuProperty']",
     ].join(","));
 
     gruposVariante.forEach(grupo => {
+      // Título: "cor: 10000mA" → nome = "cor"
       const labelEl = grupo.querySelector(
-        "[class*='property-title'], [class*='sku-title'], dt, label, .title"
+        "[class*='sku-item--title'], [class*='property-title'], [class*='sku-title'], dt, label, .title"
       );
-      let nome = (labelEl?.textContent || "").trim().replace(/[:：].*/,"").trim();
+      let nome = (labelEl?.textContent || "").trim();
+      // remove o valor selecionado depois dos dois-pontos
+      nome = nome.split(/[:：]/)[0].trim();
       if (!nome || nome.length > 40) return;
 
       const opcoes = [];
       const vistos = new Set();
-      grupo.querySelectorAll("[class*='sku-property-item'], li, [data-sku-col], button, dd span, [role='option']").forEach(op => {
+      grupo.querySelectorAll([
+        "[class*='sku-item--image']",
+        "[class*='sku-item--text']",
+        "[class*='sku-property-item']",
+        "[data-sku-col]",
+        "[role='option']",
+      ].join(",")).forEach(op => {
         const img = op.querySelector("img");
-        const txt = (op.getAttribute("title") || op.textContent || "").trim();
+        let txt = (op.getAttribute("title") || (img && img.alt) || op.textContent || "").trim();
         if (!txt || txt.length > 60) return;
         if (vistos.has(txt)) return; vistos.add(txt);
-        if (img?.src) opcoes.push({ label: img.alt || txt, img: img.src.startsWith("//") ? "https:"+img.src : img.src });
+        if (img?.src) opcoes.push({ label: txt, img: img.src.startsWith("//") ? "https:"+img.src : img.src });
         else opcoes.push({ label: txt });
       });
       if (!opcoes.length) return;
@@ -408,6 +473,23 @@ async function extrairDadosPagina() {
         .replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
       resultado.descricao_texto = texto.slice(0, 3000);
     } catch (e) {}
+  }
+
+  // Fallback: imagens da descrição direto do DOM (seção de detalhes da página)
+  if (!resultado.descricao_imagens || resultado.descricao_imagens.length === 0) {
+    const di = [];
+    document.querySelectorAll([
+      "[class*='detail-desc'] img",
+      "[class*='description'] img",
+      "[class*='product-description'] img",
+      "#product-description img",
+      "[class*='detailmodule'] img",
+    ].join(",")).forEach(img => {
+      let u = img.src || img.dataset.src || "";
+      if (u.startsWith("//")) u = "https:" + u;
+      if (u.startsWith("http") && !di.includes(u)) di.push(u);
+    });
+    if (di.length) resultado.descricao_imagens = di.slice(0, 20);
   }
 
   return resultado;
