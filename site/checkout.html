@@ -100,7 +100,7 @@
         <div class="field"><label>E-mail</label><input type="email" id="email" placeholder="joao@email.com" required/></div>
       </div>
       <div class="form-row">
-        <div class="field"><label>CPF</label><input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14"/></div>
+        <div class="field"><label>CPF *</label><input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14"/><div id="cpf-erro" style="font-size:11px;color:#dc2626;margin-top:3px;display:none;">CPF inválido</div></div>
         <div class="field"><label>Telefone</label><input type="text" id="tel" placeholder="(11) 99999-9999"/></div>
       </div>
       <div class="form-row">
@@ -329,9 +329,16 @@ async function finalizarPedido() {
   const email = document.getElementById("email").value.trim();
   const rua   = document.getElementById("rua").value.trim();
   const cidade= document.getElementById("cidade").value.trim();
+  const cpf   = document.getElementById("cpf").value.trim();
 
   if (!nome || !email || !rua || !cidade) {
     alert("Preencha todos os campos obrigatórios.");
+    return;
+  }
+  if (!validarCPF(cpf)) {
+    document.getElementById("cpf-erro").style.display = "block";
+    document.getElementById("cpf").focus();
+    alert("CPF inválido. É obrigatório para o envio do produto.");
     return;
   }
 
@@ -384,13 +391,37 @@ async function finalizarPedido() {
   }
 }
 
-// CPF mask
+// ── VALIDAÇÃO DE CPF (dígitos verificadores) ──────────────────────────────────
+function validarCPF(cpf){
+  cpf = (cpf||"").replace(/\D/g,"");
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  for (let t=9; t<11; t++){
+    let soma=0;
+    for (let n=0; n<t; n++) soma += parseInt(cpf[n]) * ((t+1)-n);
+    let dig = (soma*10) % 11;
+    if (dig === 10) dig = 0;
+    if (dig !== parseInt(cpf[t])) return false;
+  }
+  return true;
+}
+
+// CPF: máscara + validação em tempo real
 document.getElementById("cpf").addEventListener("input", function() {
   let v = this.value.replace(/\D/g,"");
   v = v.replace(/(\d{3})(\d)/,"$1.$2");
   v = v.replace(/(\d{3})(\d)/,"$1.$2");
   v = v.replace(/(\d{3})(\d{1,2})$/,"$1-$2");
   this.value = v;
+  const erro = document.getElementById("cpf-erro");
+  const limpo = v.replace(/\D/g,"");
+  if (limpo.length === 11){
+    const ok = validarCPF(limpo);
+    erro.style.display = ok ? "none" : "block";
+    this.style.borderColor = ok ? "var(--green)" : "#dc2626";
+  } else {
+    erro.style.display = "none";
+    this.style.borderColor = "";
+  }
 });
 
 renderResumo();

@@ -3,6 +3,7 @@ Servidor backend — TechDrop Brasil
 Gerencia carrinho, checkout Mercado Pago e pedidos automáticos.
 """
 import os
+import re
 import json
 import uuid
 import hmac
@@ -110,6 +111,20 @@ def admin_deletar_cupom(codigo):
     return jsonify({"ok": cupons.deletar(codigo)})
 
 
+def _cpf_valido(cpf: str) -> bool:
+    """Valida CPF com os dígitos verificadores (algoritmo oficial)."""
+    cpf = re.sub(r"\D", "", cpf or "")
+    if len(cpf) != 11 or cpf == cpf[0] * 11:
+        return False
+    for i in (9, 10):
+        soma = sum(int(cpf[n]) * ((i + 1) - n) for n in range(i))
+        dig = (soma * 10) % 11
+        dig = 0 if dig == 10 else dig
+        if dig != int(cpf[i]):
+            return False
+    return True
+
+
 @app.route("/api/checkout", methods=["POST"])
 def criar_checkout():
     """
@@ -126,6 +141,10 @@ def criar_checkout():
 
     if not itens:
         return jsonify({"ok": False, "erro": "Carrinho vazio"}), 400
+
+    # ── CPF obrigatório e válido (exigido pelo AliExpress p/ envio ao Brasil) ──
+    if not _cpf_valido(cliente.get("cpf", "")):
+        return jsonify({"ok": False, "erro": "CPF inválido. Verifique os números informados.", "campo": "cpf"}), 400
 
     # ── ANTI-FRAUDE: revalida preços contra o banco ───────────────────────────
     catalogo = {p["id"]: p for p in produtos_db.listar()}
