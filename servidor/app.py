@@ -566,6 +566,27 @@ def conta_me():
     u = usuarios.obter(dados["email"])
     return jsonify({"ok": True, "usuario": u})
 
+@app.route("/api/conta/pedido/<pid>/cancelar", methods=["POST"])
+def conta_cancelar_pedido(pid):
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    dados = usuarios.verificar_token(token)
+    if not dados:
+        return jsonify({"ok": False, "erro": "Não autenticado"}), 401
+    pedido = _carregar_pedido(pid.upper())
+    if not pedido:
+        return jsonify({"ok": False, "erro": "Pedido não encontrado"}), 404
+    # Só o dono pode cancelar, e só se ainda não pagou
+    dono = (pedido.get("usuario_email", "") or pedido.get("cliente", {}).get("email", "")).lower()
+    if dono != dados["email"].lower():
+        return jsonify({"ok": False, "erro": "Sem permissão"}), 403
+    if pedido.get("status") not in ("aguardando_pagamento", "pending"):
+        return jsonify({"ok": False, "erro": "Este pedido não pode ser cancelado"}), 400
+    pedido["status"] = "cancelado"
+    pedido["cancelado_em"] = datetime.now().isoformat()
+    _salvar_pedido(pedido)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/conta/pedidos", methods=["GET"])
 def conta_pedidos():
     token = request.headers.get("Authorization", "").replace("Bearer ", "")

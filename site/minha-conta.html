@@ -175,6 +175,7 @@ function statusInfo(p) {
   if (info.status === "transito" || s === "comprado_aliexpress") return {label:"Em trânsito", cls:"st-transito", etapa:1};
   if (["approved","pagamento_aprovado"].includes(s)) return {label:"Pagamento aprovado", cls:"st-pago", etapa:0};
   if (s === "reembolsado") return {label:"Reembolsado", cls:"st-aguardando", etapa:0};
+  if (s === "cancelado") return {label:"Cancelado", cls:"st-problema", etapa:0};
   if (s === "disputa" || info.problema) return {label:"Em análise", cls:"st-problema", etapa:1};
   return {label:"Aguardando pagamento", cls:"st-aguardando", etapa:0};
 }
@@ -221,6 +222,13 @@ async function carregarPainel() {
         ${p.rastreio ? `<div class="rastreio-codigo">Código: <a href="https://www.17track.net/pt-br?nums=${p.rastreio}" target="_blank">${p.rastreio}</a></div>` : ''}
       </div>`;
 
+    const pendente = ["aguardando_pagamento","pending"].includes(p.status);
+    const acoesPendente = pendente ? `
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+        ${p.checkout_url ? `<a href="${p.checkout_url}" style="background:var(--green);color:#fff;padding:10px 20px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none;">Pagar agora</a>` : ''}
+        <button onclick="cancelarPedido('${p.id}')" style="background:#fff;border:1px solid var(--border);color:var(--muted);padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;">Cancelar pedido</button>
+      </div>` : '';
+
     return `
     <div class="pedido-card">
       <div class="pedido-top">
@@ -232,9 +240,18 @@ async function carregarPainel() {
       </div>
       <div class="pedido-itens">${itens}</div>
       <div style="font-size:14px;font-weight:700;">Total: R$ ${(p.total||0).toFixed(2).replace('.',',')}</div>
+      ${acoesPendente}
       ${["approved","pagamento_aprovado","comprado_aliexpress","entregue"].includes(p.status)||p.rastreio ? timeline : ''}
     </div>`;
   }).join("");
+}
+
+async function cancelarPedido(id){
+  if(!confirm("Cancelar este pedido?"))return;
+  const r=await api(`/api/conta/pedido/${id}/cancelar`,{method:"POST"});
+  const d=await r.json();
+  if(d.ok){ carregarPainel(); }
+  else alert(d.erro||"Erro ao cancelar");
 }
 
 // INIT
