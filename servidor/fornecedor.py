@@ -37,7 +37,69 @@ def _token_salvo() -> dict | None:
 
 def get_token() -> str:
     t = _token_salvo()
+    if t:
+        # Renova automaticamente se estiver perto de expirar
+        try:
+            _renovar_se_preciso(t)
+            t = _token_salvo()
+        except Exception as e:
+            print(f"[ALI TOKEN] erro ao checar validade: {e}")
     return (t or {}).get("access_token", "") or os.getenv("ALIEXPRESS_DS_TOKEN", "")
+
+
+def _renovar_se_preciso(t: dict):
+    """Renova o access_token via refresh_token quando faltam <2 dias p/ expirar."""
+    from datetime import timedelta
+    obtido = t.get("obtido_em")
+    expires_in = int(t.get("expires_in", 0) or 0)   # segundos
+    if not obtido or not expires_in or not t.get("refresh_token"):
+        return
+    try:
+        venc = datetime.fromisoformat(obtido) + timedelta(seconds=expires_in)
+    except Exception:
+        return
+    # Renova se faltar menos de 2 dias
+    if datetime.now() < venc - timedelta(days=2):
+        return
+    renovar_token()
+
+
+def renovar_token() -> dict:
+    """Usa o refresh_token para gerar um novo access_token."""
+    t = _token_salvo()
+    if not t or not t.get("refresh_token"):
+        return {"ok": False, "erro": "Sem refresh_token salvo"}
+    if not (ALI_DS_APP_KEY and ALI_DS_APP_SECRET):
+        return {"ok": False, "erro": "App key/secret ausentes"}
+
+    api_path = "/auth/token/refresh"
+    params = {
+        "app_key":       ALI_DS_APP_KEY,
+        "timestamp":     str(int(time.time() * 1000)),
+        "sign_method":   "sha256",
+        "refresh_token": t["refresh_token"],
+    }
+    params["sign"] = _iop_sign(api_path, params, ALI_DS_APP_SECRET)
+    try:
+        r = httpx.post(IOP_URL + api_path, data=params, timeout=20)
+        data = r.json()
+        novo = data.get("access_token")
+        if not novo:
+            print(f"[ALI TOKEN] refresh falhou: {data}")
+            return {"ok": False, "erro": str(data)}
+        registro = {
+            "access_token":  novo,
+            "refresh_token": data.get("refresh_token", t["refresh_token"]),
+            "expires_in":    data.get("expires_in", t.get("expires_in", 0)),
+            "obtido_em":     datetime.now().isoformat(),
+            "account":       t.get("account", ""),
+        }
+        db.put("_sistema", "aliexpress_token", registro)
+        print("[ALI TOKEN] ✓ access_token renovado automaticamente")
+        return {"ok": True}
+    except Exception as e:
+        print(f"[ALI TOKEN] erro no refresh: {e}")
+        return {"ok": False, "erro": str(e)}
 
 
 def automacao_ativa() -> bool:

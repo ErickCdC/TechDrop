@@ -943,9 +943,25 @@ def _job_carrinho_abandonado():
         except Exception as e:
             print(f"[CARRINHO] Erro: {e}")
 
+def _job_token_aliexpress():
+    """Renova o access_token do AliExpress proativamente (1x por dia)."""
+    while True:
+        _time.sleep(24 * 3600)
+        if not _sou_lider():
+            continue
+        try:
+            from servidor import fornecedor
+        except ImportError:
+            import fornecedor
+        try:
+            fornecedor.get_token()  # dispara renovação se estiver perto de expirar
+        except Exception as e:
+            print(f"[ALI TOKEN] job: {e}")
+
 threading.Thread(target=_job_rastreio,            daemon=True).start()
 threading.Thread(target=_job_reembolsos,          daemon=True).start()
 threading.Thread(target=_job_carrinho_abandonado, daemon=True).start()
+threading.Thread(target=_job_token_aliexpress,    daemon=True).start()
 
 
 @app.route("/api/admin/pedidos", methods=["GET"])
