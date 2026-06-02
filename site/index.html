@@ -335,6 +335,18 @@
   </div>
 </section>
 
+<!-- INDIQUE E GANHE -->
+<section id="indique-band" style="display:none;">
+  <div class="container">
+    <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:20px;padding:40px 32px;text-align:center;color:#fff;">
+      <div style="font-size:44px;margin-bottom:8px;">🎁</div>
+      <h2 style="font-size:26px;font-weight:900;margin-bottom:10px;color:#fff;">Indique amigos e ganhe cashback</h2>
+      <p id="indique-band-texto" style="font-size:15px;opacity:.85;max-width:520px;margin:0 auto 22px;">Crie sua conta grátis, compartilhe seu link e ganhe cashback toda vez que um amigo fizer a primeira compra. Seu amigo também ganha. 💚</p>
+      <a href="/minha-conta" class="btn btn-primary" style="background:#22c55e;color:#022c14;font-weight:800;">Criar conta e pegar meu link →</a>
+    </div>
+  </div>
+</section>
+
 <!-- FOOTER -->
 <footer>
   <div class="container">
@@ -399,9 +411,12 @@
     <h3 id="popup-titulo" style="font-size:22px;font-weight:900;color:#111827;margin-bottom:8px;"></h3>
     <p id="popup-texto" style="font-size:14px;color:#6b7280;margin-bottom:20px;"></p>
     <div id="popup-form">
-      <input id="popup-email" type="email" placeholder="seu@email.com" style="width:100%;padding:13px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:15px;margin-bottom:10px;box-sizing:border-box;"/>
-      <button onclick="enviarLead()" class="btn btn-primary" style="width:100%;">Quero meu desconto</button>
-      <p style="font-size:11px;color:#9ca3af;margin-top:10px;">Sem spam. Você pode sair quando quiser.</p>
+      <input id="popup-nome" type="text" placeholder="Seu nome" style="width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:15px;margin-bottom:9px;box-sizing:border-box;"/>
+      <input id="popup-email" type="email" placeholder="seu@email.com" style="width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:15px;margin-bottom:9px;box-sizing:border-box;"/>
+      <input id="popup-senha" type="password" placeholder="Crie uma senha (mín. 6)" style="width:100%;padding:12px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:15px;margin-bottom:10px;box-sizing:border-box;"/>
+      <div id="popup-erro" style="display:none;color:#dc2626;font-size:12px;margin-bottom:8px;"></div>
+      <button onclick="criarContaPopup()" class="btn btn-primary" style="width:100%;">Criar conta e ganhar desconto</button>
+      <p style="font-size:12px;color:#6b7280;margin-top:10px;">Já tem conta? <a href="/minha-conta" style="color:var(--primary);font-weight:600;">Entrar</a></p>
     </div>
     <div id="popup-sucesso" style="display:none;">
       <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:18px;margin-top:8px;">
@@ -474,6 +489,16 @@ function aplicarConfig(c){
   // Cronômetro de oferta + popup de captura
   iniciarOferta(c);
   iniciarPopup(c);
+  // Faixa "Indique e ganhe"
+  const ib=document.getElementById("indique-band");
+  if(ib){
+    if(c.indicacao_ativa!==false){
+      ib.style.display="block";
+      const valor=Number(c.indicacao_valor||15).toFixed(2).replace(".",",");
+      const t=document.getElementById("indique-band-texto");
+      if(t) t.textContent=`Crie sua conta grátis, compartilhe seu link e ganhe R$ ${valor} de cashback toda vez que um amigo fizer a primeira compra. Seu amigo também ganha. 💚`;
+    }else{ ib.style.display="none"; }
+  }
 }
 
 // ── PRODUTOS ────────────────────────────────────────────────────────────────
@@ -684,19 +709,35 @@ function fecharPopup(){
   document.getElementById("popup-lead").style.display="none";
   localStorage.setItem("popup_lead_visto","1");
 }
-async function enviarLead(){
+async function criarContaPopup(){
+  const nome=(document.getElementById("popup-nome").value||"").trim();
   const email=(document.getElementById("popup-email").value||"").trim();
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ alert("Digite um e-mail válido."); return; }
+  const senha=document.getElementById("popup-senha").value||"";
+  const erro=document.getElementById("popup-erro");
+  erro.style.display="none";
+  if(!nome){ erro.textContent="Digite seu nome."; erro.style.display="block"; return; }
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ erro.textContent="Digite um e-mail válido."; erro.style.display="block"; return; }
+  if(senha.length<6){ erro.textContent="A senha precisa de pelo menos 6 caracteres."; erro.style.display="block"; return; }
   try{
-    await fetch("/api/lead",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({email, origem:"popup"})});
-  }catch(e){}
+    const r=await fetch("/api/conta/cadastrar",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({nome,email,senha})});
+    const d=await r.json();
+    if(!d.ok){ erro.textContent=d.erro||"Não foi possível criar a conta."; erro.style.display="block"; return; }
+    // já loga o cliente
+    localStorage.setItem("user_token", d.token);
+    localStorage.setItem("user_nome", d.nome);
+    // registra indicação, se veio de um link
+    const ref=localStorage.getItem("ref_indicador");
+    if(ref){ try{ await fetch("/api/indicacao/registrar",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+d.token},
+      body:JSON.stringify({ref})}); }catch(e){} localStorage.removeItem("ref_indicador"); }
+  }catch(e){ erro.textContent="Erro de conexão. Tente de novo."; erro.style.display="block"; return; }
   localStorage.setItem("popup_lead_visto","1");
   const cupom=CONFIG.popup_cupom||"BEMVINDO10";
   document.getElementById("popup-codigo").textContent=cupom;
   document.getElementById("popup-form").style.display="none";
   document.getElementById("popup-sucesso").style.display="block";
-  if(window.track) track("Lead",{content_name:"popup_email"});
+  if(window.track){ track("CompleteRegistration",{content_name:"popup"}); }
 }
 function copiarCupom(){
   navigator.clipboard.writeText(document.getElementById("popup-codigo").textContent);

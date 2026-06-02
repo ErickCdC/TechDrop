@@ -77,7 +77,7 @@ PADRAO = {
     # Popup de captura de e-mail + cupom de 1ª compra
     "popup_ativo":   False,
     "popup_titulo":  "Ganhe 10% no primeiro pedido",
-    "popup_texto":   "Cadastre seu e-mail e receba agora o cupom de boas-vindas.",
+    "popup_texto":   "Crie sua conta grátis e receba na hora o cupom de boas-vindas.",
     "popup_cupom":   "BEMVINDO10",
     "popup_delay":   4,             # segundos até aparecer
 

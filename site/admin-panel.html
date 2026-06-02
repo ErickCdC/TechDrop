@@ -494,6 +494,7 @@
     <div id="variantes-importadas" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;">
       <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:10px;">Variantes — você pode renomear (ex: cor → Capacidade)</div>
       <div id="variantes-editor"></div>
+      <div id="skus-precos" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
     </div>
 
     <!-- GANCHOS DE COPY -->
@@ -1102,6 +1103,7 @@ function abrirModalProduto(){
   document.getElementById("prod-sugerir").value="false";
   document.getElementById("prod-headline").value="";
   renderVariantesEditor([]);
+  renderSkusPrecos([]);
   document.getElementById("foto-preview-img").style.display="none";
   document.getElementById("foto-placeholder").style.display="block";
   document.getElementById("margem-alerta").style.display="none";
@@ -1125,6 +1127,7 @@ function editarProduto(p){
   document.getElementById("prod-headline").value=p.headline||"";
   _especificacoesAtual = p.especificacoes||[];
   renderVariantesEditor(p.variantes||[]);
+  renderSkusPrecos(p.skus||[]);
   previewUrl(p.imagem||"");
   // popula o custo para o alerta de margem funcionar
   if(p.preco_usd) document.getElementById("calc-custo-usd").value = Number(p.preco_usd).toFixed(2);
@@ -1159,6 +1162,7 @@ async function uploadFoto(input){
 
 // ── EDITOR DE VARIANTES ───────────────────────────────────────────────────────
 let _variantesAtual = [];
+let _skusAtual = [];
 function renderVariantesEditor(variantes){
   _variantesAtual = JSON.parse(JSON.stringify(variantes || []));
   const box = document.getElementById("variantes-importadas");
@@ -1170,16 +1174,47 @@ function renderVariantesEditor(variantes){
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
         <input type="text" value="${(v.nome||'').replace(/"/g,'&quot;')}" data-vi="${i}"
           onchange="_variantesAtual[${i}].nome=this.value"
-          style="flex:1;background:#fff;border:1.5px solid var(--accent)40;border-radius:7px;padding:7px 10px;font-size:13px;font-weight:700;color:var(--text);"/>
-        <span style="font-size:11px;color:var(--muted);">nome da variante</span>
+          style="flex:1;background:#fff;border:1.5px solid #93c5fd;border-radius:7px;padding:7px 10px;font-size:13px;font-weight:700;color:#111827;"/>
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap;">nome da variante</span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
         ${(v.opcoes||[]).map(o=>{
           const label = typeof o==="string"?o:(o.label||"");
-          return `<span style="background:#fff;border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-size:12px;">${label}</span>`;
+          return `<span style="background:#fff;border:1px solid #d1d5db;color:#374151;padding:4px 10px;border-radius:6px;font-size:12px;">${label}</span>`;
         }).join("")}
       </div>
     </div>`).join("");
+}
+
+// ── PREÇO POR VARIANTE (SKU) ──────────────────────────────────────────────────
+function _skuLabel(s){
+  // sku_attr ex: "14:771#Vermelho;5:100014064#XL" → "Vermelho / XL"
+  if(s.sku_attr){
+    const parts = s.sku_attr.split(";").map(p=>{
+      const ap = p.split("#");
+      return (ap[1]||"").trim();
+    }).filter(Boolean);
+    if(parts.length) return parts.join(" / ");
+  }
+  return s.prop_ids || s.sku_id || "Variante";
+}
+function renderSkusPrecos(skus){
+  _skusAtual = JSON.parse(JSON.stringify(skus || []));
+  const box = document.getElementById("skus-precos");
+  if(!box) return;
+  if(!_skusAtual.length){ box.style.display="none"; box.innerHTML=""; return; }
+  box.style.display="block";
+  box.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:4px;">Preço por variante</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">Cada combinação pode ter um preço próprio. Deixe 0 para usar o preço de venda principal.</p>
+    ${_skusAtual.map((s,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
+        <span style="flex:1;font-size:13px;color:#111827;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;">${_skuLabel(s)}</span>
+        <span style="font-size:12px;color:var(--muted);">R$</span>
+        <input type="number" step="0.01" value="${s.preco_venda||0}"
+          onchange="_skusAtual[${i}].preco_venda=parseFloat(this.value)||0"
+          style="width:100px;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:7px 10px;font-size:13px;color:#111827;"/>
+      </div>`).join("")}`;
 }
 
 // ── DESCRIÇÃO COM IA ──────────────────────────────────────────────────────────
@@ -1221,6 +1256,7 @@ async function salvarProduto(){
     sugerir_carrinho: document.getElementById("prod-sugerir").value==="true",
     headline:     document.getElementById("prod-headline").value,
     variantes:    _variantesAtual,
+    skus:         _skusAtual,
   };
   if(!dados.titulo){toast("Nome do produto é obrigatório","erro");return;}
   if(!dados.preco_venda){toast("Preço de venda é obrigatório","erro");return;}
@@ -1567,6 +1603,7 @@ function _preencherModalImportado(d) {
 
   // Variantes editáveis
   renderVariantesEditor(d.variantes || []);
+  renderSkusPrecos(d.skus || []);
 
   // Ganchos de copy
   const ganchosEl = document.getElementById("ganchos-importados");
