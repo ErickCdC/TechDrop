@@ -57,6 +57,7 @@ async function extrairDadosPagina() {
     preco_brl: 0,
     preco_original_brl: 0,
     variantes: [],
+    skus: [],
     avaliacao: "",
     vendas: "",
   };
@@ -145,16 +146,34 @@ async function extrairDadosPagina() {
       if (nome && valor) resultado.especificacoes.push({ nome, valor });
     });
 
-    // Variantes (skuModule) — Cor, Tamanho, Capacidade etc.
+    // Variantes (skuModule) — Cor, Tamanho, Capacidade COM os IDs do AliExpress
     const sm = DATA.skuModule || {};
     (sm.productSKUPropertyList || []).forEach(prop => {
       const nome = (prop.skuPropertyName || "").trim();
+      const propId = prop.skuPropertyId;
       const opcoes = (prop.skuPropertyValues || []).map(v => {
         let img = v.skuPropertyImagePath || "";
         if (img && img.startsWith("//")) img = "https:" + img;
-        return { label: (v.propertyValueDisplayName || v.propertyValueName || "").trim(), img };
+        return {
+          label:   (v.propertyValueDisplayName || v.propertyValueName || "").trim(),
+          img,
+          valueId: v.propertyValueId,                 // ID exigido pela API de pedido
+          valueName: v.skuPropertyValue || v.propertyValueName || "",
+        };
       }).filter(o => o.label);
-      if (nome && opcoes.length) resultado.variantes.push({ nome, opcoes: opcoes.slice(0, 30) });
+      if (nome && opcoes.length) resultado.variantes.push({ nome, propId, opcoes: opcoes.slice(0, 50) });
+    });
+
+    // Lista de SKUs: cada combinação tem skuAttr (string que a API precisa) + preço
+    resultado.skus = (sm.skuPriceList || []).map(s => {
+      const v = s.skuVal || {};
+      return {
+        sku_id:    s.skuId,
+        sku_attr:  s.skuAttr || "",      // ex "14:771#Red;5:100014064#XL"
+        prop_ids:  s.skuPropIds || "",   // ex "771,100014064"
+        preco:     parseFloat(v.skuActivityAmount?.value || v.skuAmount?.value || 0) || 0,
+        estoque:   v.availQuantity || v.inventory || 0,
+      };
     });
 
     // Vídeo
@@ -434,6 +453,7 @@ async function enviarParaPainel() {
     badge:           "Novo",
     categoria:       "acessorios",
     especificacoes:  d.especificacoes || [],
+    skus:            d.skus || [],
     descricao:       _montarDescricao(d),
   };
 

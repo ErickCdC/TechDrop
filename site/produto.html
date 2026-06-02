@@ -396,10 +396,16 @@ function initDrag(){
 }
 
 // VARIANTES
-let selecao={};
+let selecao={};         // {nome: label} para exibir
+let selValueIds=[];     // valueId selecionado por propriedade (índice)
+let _vars=[];           // referência às variantes
+let skuAtual=null;      // SKU casado com a seleção atual
+
 function renderVariantes(vars){
+  _vars=vars;
   const el=document.getElementById("p-variantes");
   if(!vars.length){el.innerHTML="";return;}
+  selValueIds=vars.map(v=>v.opcoes[0]?.valueId ?? null);
   el.innerHTML=vars.map((v,vi)=>`
     <div class="var-group">
       <div class="var-label">${v.nome}: <span id="sel-${vi}"></span></div>
@@ -407,17 +413,34 @@ function renderVariantes(vars){
         ${v.opcoes.map((o,oi)=>{
           const label=typeof o==="string"?o:(o.label||"");
           const img=typeof o==="object"&&o.img?o.img:"";
-          return `<div class="var-opt ${oi===0?'on':''}" onclick="selVar(${vi},${oi},'${label.replace(/'/g,'')}')">${img?`<img src="${img}">`:''}${label}</div>`;
+          return `<div class="var-opt ${oi===0?'on':''}" onclick="selVar(${vi},${oi})">${img?`<img src="${img}">`:''}${label}</div>`;
         }).join("")}
       </div>
     </div>`).join("");
-  vars.forEach((v,vi)=>{const o=v.opcoes[0];selecao[v.nome]=typeof o==="string"?o:(o.label||"");document.getElementById(`sel-${vi}`).textContent=selecao[v.nome];});
+  vars.forEach((v,vi)=>{const o=v.opcoes[0];const label=typeof o==="string"?o:(o.label||"");selecao[v.nome]=label;document.getElementById(`sel-${vi}`).textContent=label;});
+  casarSku();
 }
-function selVar(vi,oi,label){
+function selVar(vi,oi){
+  const v=_vars[vi]; const o=v.opcoes[oi];
   const group=document.querySelectorAll(".var-group")[vi];
   group.querySelectorAll(".var-opt").forEach((el,i)=>el.classList.toggle("on",i===oi));
-  const nome=group.querySelector(".var-label").textContent.split(":")[0];
-  selecao[nome]=label;document.getElementById(`sel-${vi}`).textContent=label;
+  selecao[v.nome]= typeof o==="string"?o:(o.label||"");
+  selValueIds[vi]= o.valueId ?? null;
+  document.getElementById(`sel-${vi}`).textContent=selecao[v.nome];
+  casarSku();
+}
+// Encontra o SKU do AliExpress que bate com TODAS as opções selecionadas
+function casarSku(){
+  skuAtual=null;
+  if(!PRODUTO || !PRODUTO.skus || !PRODUTO.skus.length) return;
+  const ids = selValueIds.filter(x=>x!=null).map(String);
+  if(!ids.length) return;
+  skuAtual = PRODUTO.skus.find(s=>{
+    const props = (s.prop_ids||"").split(",").map(x=>x.trim());
+    return ids.every(id=>props.includes(id)) || ids.every(id=>(s.sku_attr||"").includes(id));
+  }) || null;
+  // Se o SKU tem preço próprio diferente, mantém o preço de venda do produto
+  // (a margem já foi aplicada). Apenas guarda o sku_attr para a compra.
 }
 
 // REVIEWS
@@ -488,9 +511,24 @@ function badge(){document.getElementById("cart-count").textContent=carrinho.redu
 function adicionar(){
   if(!PRODUTO)return;
   const variante=Object.entries(selecao).map(([k,v])=>`${k}: ${v}`).join(", ");
+  // Se o produto tem variantes mas nenhum SKU casou, avisa
+  if(_vars.length && PRODUTO.skus && PRODUTO.skus.length && !skuAtual){
+    toast("Selecione as opções do produto");
+    return;
+  }
+  const sku_attr = skuAtual ? skuAtual.sku_attr : "";
   const ex=carrinho.find(i=>i.id===PRODUTO.id&&i.variante===variante);
   if(ex)ex.quantidade++;
-  else carrinho.push({id:PRODUTO.id,titulo_pt:PRODUTO.titulo+(variante?` (${variante})`:""),imagem:FOTOS[0],preco_venda:PRODUTO.preco_venda,quantidade:1,variante});
+  else carrinho.push({
+    id:PRODUTO.id,
+    titulo_pt:PRODUTO.titulo+(variante?` (${variante})`:""),
+    imagem:FOTOS[0],
+    preco_venda:PRODUTO.preco_venda,
+    quantidade:1,
+    variante,
+    sku_attr,                          // ← vai para a API de compra do AliExpress
+    link_aliexpress:PRODUTO.link_aliexpress||""
+  });
   localStorage.setItem("carrinho",JSON.stringify(carrinho));badge();abrirCarrinho();
 }
 function removerItem(i){carrinho.splice(i,1);localStorage.setItem("carrinho",JSON.stringify(carrinho));badge();renderCart();}
