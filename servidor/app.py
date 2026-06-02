@@ -446,6 +446,19 @@ def _processar_pedido_aprovado(pedido: dict):
         pedido["fulfillment"] = "manual"
         print(f"[FULFILLMENT] Erro: {e}")
 
+    # ── INDIQUE E GANHE: credita na 1ª compra aprovada (idempotente) ──────────
+    try:
+        cfg_ind = config_site.obter()
+        if cfg_ind.get("indicacao_ativa", True):
+            email_comprador = (pedido.get("usuario_email")
+                               or pedido.get("cliente", {}).get("email", "")).lower()
+            if email_comprador and usuarios.obter(email_comprador):
+                res_ind = usuarios.creditar_indicacao(email_comprador, float(cfg_ind.get("indicacao_valor", 15)))
+                if res_ind.get("ok"):
+                    print(f"[INDICACAO] Creditado R$ {res_ind['valor']} p/ {email_comprador} e {res_ind['indicador']}")
+    except Exception as e:
+        print(f"[INDICACAO] erro: {e}")
+
     _salvar_pedido(pedido)
     print(f"[PEDIDO] Aprovado: {pedido['id']} - R$ {pedido.get('total',0):.2f}")
 
@@ -654,6 +667,39 @@ def conta_principal_endereco(eid):
     if not d:
         return jsonify({"ok": False, "erro": "Não autenticado"}), 401
     return jsonify({"ok": usuarios.definir_endereco_principal(d["email"], eid)})
+
+
+@app.route("/api/conta/indicacao", methods=["GET"])
+def conta_indicacao():
+    d = _user_do_token()
+    if not d:
+        return jsonify({"ok": False, "erro": "Não autenticado"}), 401
+    cfg = config_site.obter()
+    if not cfg.get("indicacao_ativa", True):
+        return jsonify({"ok": True, "ativo": False})
+    codigo = usuarios.obter_ou_criar_ref(d["email"])
+    u = usuarios.obter(d["email"]) or {}
+    # conta quantos amigos foram creditados a partir deste indicador
+    indicados = len([x for x in db.listar("usuarios")
+                     if (x.get("indicado_por", "") or "").lower() == d["email"].lower()
+                     and x.get("indicacao_creditada")])
+    return jsonify({
+        "ok": True, "ativo": True,
+        "codigo": codigo,
+        "link": f"{LOJA_URL}/?ref={codigo}",
+        "valor": float(cfg.get("indicacao_valor", 15)),
+        "indicados": indicados,
+        "saldo": usuarios.obter_saldo(d["email"]),
+    })
+
+@app.route("/api/indicacao/registrar", methods=["POST"])
+def indicacao_registrar():
+    d = _user_do_token()
+    if not d:
+        return jsonify({"ok": False, "erro": "Não autenticado"}), 401
+    ref = (request.json or {}).get("ref", "")
+    ok = usuarios.registrar_indicacao(d["email"], ref)
+    return jsonify({"ok": ok})
 
 
 @app.route("/api/conta/pedidos", methods=["GET"])
@@ -1180,6 +1226,40 @@ def admin_metricas():
 
     melhor_hora = max(vendas_hora, key=vendas_hora.get) if any(vendas_hora.values()) else "18"
 
+    # ── LUCRO LÍQUIDO REAL ────────────────────────────────────────────────────
+    cfg = config_site.obter()
+    taxa_mp_pct = float(cfg.get("taxa_mp_pct", 4.99) or 0)
+    trafego_pad = float(cfg.get("custo_trafego_pedido", 10) or 0)
+
+    # mapa id -> custo em BRL (do catálogo atual)
+    custo_por_id = {}
+    for p in produtos_db.listar():
+        c = p.get("custo_brl")
+        if not c and p.get("preco_usd"):
+            c = float(p["preco_usd"]) * float(cfg.get("custo_cambio", 5.70)) * 1.05
+        custo_por_id[str(p.get("id"))] = float(c or 0)
+
+    custo_produtos = 0.0
+    for p in aprovados:
+        for item in p.get("itens", []):
+            qtd = item.get("quantidade", 1) or 1
+            custo = custo_por_id.get(str(item.get("id")), 0)
+            if not custo:   # produto saiu do catálogo: estima 35% do preço de venda
+                custo = float(item.get("preco_venda", 0)) * 0.35
+            custo_produtos += custo * qtd
+
+    taxa_mp   = receita * taxa_mp_pct / 100
+    # gasto com anúncio: valor informado pelo admin (total) ou estimativa por pedido
+    gasto_reg = db.get("_sistema", "gasto_anuncios") or {}
+    gasto_anuncios = float(gasto_reg.get("total", 0) or 0)
+    if not gasto_anuncios:
+        gasto_anuncios = trafego_pad * len(aprovados)   # estimativa
+        gasto_estimado = True
+    else:
+        gasto_estimado = False
+
+    lucro_liquido = receita - custo_produtos - taxa_mp - gasto_anuncios
+
     return jsonify({
         "ok": True,
         "total_pedidos":   len(pedidos),
@@ -1189,7 +1269,24 @@ def admin_metricas():
         "melhor_hora":     melhor_hora,
         "vendas_por_hora": vendas_hora,
         "produtos_ativos": len([p for p in produtos_db.listar() if p.get("ativo")]),
+        # lucro real
+        "custo_produtos":  round(custo_produtos, 2),
+        "taxa_mp":         round(taxa_mp, 2),
+        "gasto_anuncios":  round(gasto_anuncios, 2),
+        "gasto_estimado":  gasto_estimado,
+        "lucro_liquido":   round(lucro_liquido, 2),
+        "margem_liquida":  round(lucro_liquido / receita * 100, 1) if receita else 0,
     })
+
+
+@app.route("/api/admin/gasto-anuncios", methods=["POST"])
+@login_required
+def admin_set_gasto_anuncios():
+    """Admin informa quanto gastou com anúncios (total acumulado)."""
+    valor = float((request.json or {}).get("total", 0) or 0)
+    db.put("_sistema", "gasto_anuncios", {"total": valor,
+                                          "atualizado_em": datetime.now().isoformat()})
+    return jsonify({"ok": True, "total": valor})
 
 
 # ── PRODUTOS PÚBLICO ───────────────────────────────────────────────────────────
@@ -1244,6 +1341,31 @@ def status_db():
 def get_config():
     """Configurações públicas do site (lidas pelo front)."""
     return jsonify({"ok": True, "config": config_site.obter()})
+
+
+# ── LEADS (captura de e-mail pelo popup) ───────────────────────────────────────
+
+@app.route("/api/lead", methods=["POST"])
+def capturar_lead():
+    """Salva e-mail capturado no popup (para remarketing)."""
+    d = request.json or {}
+    email = (d.get("email") or "").strip().lower()
+    if "@" not in email or "." not in email:
+        return jsonify({"ok": False, "erro": "E-mail inválido"}), 400
+    existente = db.get("leads", email)
+    if not existente:
+        db.put("leads", email, {
+            "email":     email,
+            "origem":    d.get("origem", "popup"),
+            "criado_em": datetime.now().isoformat(),
+        })
+    return jsonify({"ok": True})
+
+@app.route("/api/admin/leads", methods=["GET"])
+@login_required
+def admin_listar_leads():
+    leads = sorted(db.listar("leads"), key=lambda x: x.get("criado_em", ""), reverse=True)
+    return jsonify({"ok": True, "leads": leads, "total": len(leads)})
 
 @app.route("/api/admin/config", methods=["GET"])
 @login_required

@@ -173,6 +173,42 @@
       <div class="met-card"><div class="lbl">Produtos ativos</div><div class="val" id="m-produtos">--</div><div class="delta">no catálogo</div></div>
       <div class="met-card"><div class="lbl">Melhor horário</div><div class="val" id="m-hora" style="color:var(--accent)">--</div><div class="delta">para anunciar</div></div>
     </div>
+    <!-- LUCRO LÍQUIDO REAL -->
+    <div class="painel" style="margin-bottom:18px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <h2 style="margin:0;">💰 Lucro líquido real</h2>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:var(--muted);">Gasto com anúncios (R$):</label>
+          <input type="number" id="gasto-anuncios" placeholder="0,00" style="width:120px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:var(--card);color:inherit;"/>
+          <button onclick="salvarGastoAnuncios()" style="background:var(--accent);color:#fff;border:none;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">Salvar</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
+        <div style="background:var(--bg);border-radius:10px;padding:14px;">
+          <div style="font-size:12px;color:var(--muted);">Receita (aprovados)</div>
+          <div style="font-size:20px;font-weight:800;" id="l-receita">R$ —</div>
+        </div>
+        <div style="background:var(--bg);border-radius:10px;padding:14px;">
+          <div style="font-size:12px;color:var(--muted);">− Custo dos produtos</div>
+          <div style="font-size:20px;font-weight:800;color:var(--red)" id="l-custo">R$ —</div>
+        </div>
+        <div style="background:var(--bg);border-radius:10px;padding:14px;">
+          <div style="font-size:12px;color:var(--muted);">− Taxa Mercado Pago</div>
+          <div style="font-size:20px;font-weight:800;color:var(--red)" id="l-taxa">R$ —</div>
+        </div>
+        <div style="background:var(--bg);border-radius:10px;padding:14px;">
+          <div style="font-size:12px;color:var(--muted);">− Anúncios <span id="l-gasto-est" style="font-size:10px;"></span></div>
+          <div style="font-size:20px;font-weight:800;color:var(--red)" id="l-gasto">R$ —</div>
+        </div>
+        <div style="background:var(--green)15;border:1px solid var(--green)40;border-radius:10px;padding:14px;">
+          <div style="font-size:12px;color:var(--muted);">= Lucro líquido</div>
+          <div style="font-size:22px;font-weight:900;color:var(--green)" id="l-lucro">R$ —</div>
+          <div style="font-size:11px;color:var(--muted);" id="l-margem">margem —%</div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px;">Custos de produto vêm do catálogo. Taxa MP e custo padrão de tráfego você ajusta em <strong>Personalizar → Custos</strong>. Se não informar o gasto com anúncios, usamos uma estimativa.</p>
+    </div>
+
     <div class="grid2">
       <div class="painel">
         <h2>🕐 Conversão por horário</h2>
@@ -424,13 +460,15 @@
     <div class="field-row">
       <div class="field">
         <label>Preço de venda (R$)</label>
-        <input type="number" id="prod-preco" placeholder="189"/>
+        <input type="number" id="prod-preco" placeholder="189" oninput="verificarMargem()"/>
       </div>
       <div class="field">
         <label>Preço "De" riscado (R$)</label>
         <input type="number" id="prod-preco-de" placeholder="389"/>
       </div>
     </div>
+    <!-- ALERTA DE MARGEM -->
+    <div id="margem-alerta" style="display:none;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.5;"></div>
     <div class="field-row">
       <div class="field">
         <label>Categoria</label>
@@ -592,6 +630,7 @@ async function carregarCupons(){
   el.innerHTML='<div style="color:var(--muted);">Carregando...</div>';
   const r=await API("/api/admin/cupons");
   const d=await r.json();
+  _cuponsCache = d.cupons || [];
   if(!d.ok||!d.cupons.length){
     el.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">Nenhum cupom criado ainda.</div>';
     return;
@@ -727,6 +766,33 @@ const CFG_CAMPOS = [
     {k:"google_analytics", label:"Google Analytics — ID (G-XXXX)", tipo:"text"},
     {k:"google_ads",       label:"Google Ads — ID (AW-XXXX)", tipo:"text"},
   ]},
+  {secao:"Frete grátis (barra no carrinho)", dica:"Mostra 'Faltam R$ X para frete grátis' no carrinho — aumenta o valor do pedido.", campos:[
+    {k:"frete_gratis_ativo",  label:"Mostrar barra de frete grátis", tipo:"bool"},
+    {k:"frete_gratis_minimo", label:"Valor mínimo para frete grátis (R$)", tipo:"text"},
+  ]},
+  {secao:"Cronômetro de oferta", dica:"Fictício: cada visitante vê um relógio próprio que reinicia. Real: conta até uma data fixa e some quando acaba.", campos:[
+    {k:"oferta_ativa",         label:"Mostrar cronômetro no topo", tipo:"bool"},
+    {k:"oferta_titulo",        label:"Texto da oferta", tipo:"text"},
+    {k:"oferta_tipo",          label:"Tipo de cronômetro", tipo:"select", opcoes:[{v:"ficticio",label:"Fictício (reinicia por visitante)"},{v:"real",label:"Real (data fixa)"}]},
+    {k:"oferta_duracao_horas", label:"Fictício: duração em horas", tipo:"text"},
+    {k:"oferta_fim",           label:"Real: data/hora limite (ex: 2026-06-10T23:59)", tipo:"text"},
+  ]},
+  {secao:"Popup de captura de e-mail", dica:"Oferece um cupom em troca do e-mail do visitante. Os e-mails ficam salvos para você fazer remarketing.", campos:[
+    {k:"popup_ativo",  label:"Ativar popup", tipo:"bool"},
+    {k:"popup_titulo", label:"Título", tipo:"text"},
+    {k:"popup_texto",  label:"Texto", tipo:"textarea"},
+    {k:"popup_cupom",  label:"Cupom entregue (crie ele na aba Cupons)", tipo:"text"},
+    {k:"popup_delay",  label:"Segundos até aparecer", tipo:"text"},
+  ]},
+  {secao:"Indique e ganhe", dica:"Cliente logado recebe um link de indicação. Quando o amigo faz a 1ª compra, os dois ganham cashback.", campos:[
+    {k:"indicacao_ativa", label:"Ativar programa de indicação", tipo:"bool"},
+    {k:"indicacao_valor", label:"Cashback por indicação (R$, para os dois)", tipo:"text"},
+  ]},
+  {secao:"Custos (margem e lucro)", dica:"Usado no alerta de margem e no dashboard de lucro real. Ajuste conforme sua realidade.", campos:[
+    {k:"custo_cambio",         label:"Cotação do dólar (USD→BRL)", tipo:"text"},
+    {k:"custo_trafego_pedido", label:"Gasto de anúncio por pedido (R$)", tipo:"text"},
+    {k:"taxa_mp_pct",          label:"Taxa do Mercado Pago (%)", tipo:"text"},
+  ]},
 ];
 
 let _config = {};
@@ -763,6 +829,11 @@ async function carregarConfigAdmin(){
             <select data-k="${c.k}">
               <option value="true" ${val!==false?'selected':''}>Sim</option>
               <option value="false" ${val===false?'selected':''}>Não</option>
+            </select></div>`;
+        if (c.tipo === "select") return `
+          <div class="field"><label>${c.label}</label>
+            <select data-k="${c.k}">
+              ${(c.opcoes||[]).map(o=>`<option value="${o.v}" ${String(val)===o.v?'selected':''}>${o.label}</option>`).join("")}
             </select></div>`;
         if (c.tipo === "color") return `
           <div class="field"><label>${c.label}</label>
@@ -942,6 +1013,19 @@ async function carregarDashboard(){
       document.getElementById("m-ticket").textContent="R$ "+d.ticket_medio.toFixed(2).replace(".",",");
       document.getElementById("m-produtos").textContent=d.produtos_ativos;
       document.getElementById("m-hora").textContent=d.melhor_hora+"h";
+      // Lucro líquido real
+      const mny=v=>"R$ "+Number(v||0).toFixed(2).replace(".",",");
+      document.getElementById("l-receita").textContent=mny(d.receita_total);
+      document.getElementById("l-custo").textContent="− "+mny(d.custo_produtos);
+      document.getElementById("l-taxa").textContent="− "+mny(d.taxa_mp);
+      document.getElementById("l-gasto").textContent="− "+mny(d.gasto_anuncios);
+      document.getElementById("l-gasto-est").textContent=d.gasto_estimado?"(estimado)":"";
+      const lucroEl=document.getElementById("l-lucro");
+      lucroEl.textContent=mny(d.lucro_liquido);
+      lucroEl.style.color=d.lucro_liquido>=0?"var(--green)":"var(--red)";
+      document.getElementById("l-margem").textContent="margem "+(d.margem_liquida||0)+"%";
+      if(!d.gasto_estimado && document.getElementById("gasto-anuncios").value==="")
+        document.getElementById("gasto-anuncios").value=d.gasto_anuncios;
     }
   }catch(e){
     document.getElementById("m-pedidos").textContent="0";
@@ -972,6 +1056,14 @@ async function carregarDashboard(){
       </tr>`).join(""):
       '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px;">Nenhum pedido ainda</td></tr>';
   }catch(e){}
+}
+
+async function salvarGastoAnuncios(){
+  const total=parseFloat(document.getElementById("gasto-anuncios").value)||0;
+  const r=await API("/api/admin/gasto-anuncios",{method:"POST",body:JSON.stringify({total})});
+  const d=await r.json();
+  if(d.ok){ toast("Gasto com anúncios salvo!"); carregarDashboard(); }
+  else toast("Erro ao salvar","erro");
 }
 
 // ── PRODUTOS ──────────────────────────────────────────────────────────────────
@@ -1012,7 +1104,9 @@ function abrirModalProduto(){
   renderVariantesEditor([]);
   document.getElementById("foto-preview-img").style.display="none";
   document.getElementById("foto-placeholder").style.display="block";
+  document.getElementById("margem-alerta").style.display="none";
   document.getElementById("modal-produto").classList.add("show");
+  garantirDadosMargem();
 }
 
 function editarProduto(p){
@@ -1032,7 +1126,11 @@ function editarProduto(p){
   _especificacoesAtual = p.especificacoes||[];
   renderVariantesEditor(p.variantes||[]);
   previewUrl(p.imagem||"");
+  // popula o custo para o alerta de margem funcionar
+  if(p.preco_usd) document.getElementById("calc-custo-usd").value = Number(p.preco_usd).toFixed(2);
+  document.getElementById("margem-alerta").style.display="none";
   document.getElementById("modal-produto").classList.add("show");
+  garantirDadosMargem();
 }
 
 function previewUrl(url){
@@ -1126,6 +1224,21 @@ async function salvarProduto(){
   };
   if(!dados.titulo){toast("Nome do produto é obrigatório","erro");return;}
   if(!dados.preco_venda){toast("Preço de venda é obrigatório","erro");return;}
+  // Trava de segurança: avisa se for salvar no prejuízo
+  const custoBrl=_custoBrlAtual();
+  if(custoBrl>0){
+    const trafego=parseFloat(document.getElementById("calc-trafego").value)||parseFloat(_config.custo_trafego_pedido)||10;
+    const taxaPct=parseFloat(_config.taxa_mp_pct)||3.5;
+    const m=_margemEm(dados.preco_venda, custoBrl, trafego, taxaPct);
+    const pc=_piorCupom(dados.preco_venda);
+    const lucroCupom=pc.cupom?_margemEm(dados.preco_venda-pc.desconto,custoBrl,trafego,taxaPct).lucro:m.lucro;
+    if(m.lucro<0 || lucroCupom<0){
+      const txt = m.lucro<0
+        ? `🚨 ATENÇÃO: este preço dá PREJUÍZO de ${_money(Math.abs(m.lucro))} por venda.`
+        : `🚨 ATENÇÃO: com o cupom ${pc.cupom.codigo} este preço vira PREJUÍZO de ${_money(Math.abs(lucroCupom))} por venda.`;
+      if(!confirm(txt+"\n\nTem certeza que quer salvar mesmo assim?")) { return; }
+    }
+  }
   const btn=document.getElementById("btn-salvar");
   btn.disabled=true; btn.textContent="Salvando...";
   try{
@@ -1470,6 +1583,7 @@ function _preencherModalImportado(d) {
   calcularPreco();
 
   document.getElementById("modal-produto").classList.add("show");
+  garantirDadosMargem();
   toast(`✅ ${d.imagens?.length||0} fotos importadas!`);
 }
 
@@ -1524,6 +1638,7 @@ function calcularPreco() {
 
   document.getElementById("calc-resultado").style.display = "block";
   document.getElementById("calc-vazio").style.display = "none";
+  verificarMargem();
 }
 
 function aplicarPreco() {
@@ -1531,6 +1646,83 @@ function aplicarPreco() {
   document.getElementById("prod-preco").value    = Math.round(_precoCalculado);
   document.getElementById("prod-preco-de").value = _precoDe;
   toast("Preço aplicado! ✓");
+  verificarMargem();
+}
+
+// ── ALERTA DE MARGEM (inclui cenário com cupons ativos) ───────────────────────
+let _cuponsCache = [];
+const _money = v => "R$ " + Number(v).toFixed(2).replace(".", ",");
+
+function _custoBrlAtual(){
+  const custoUsd = parseFloat(document.getElementById("calc-custo-usd").value) || 0;
+  const cambio   = parseFloat(document.getElementById("calc-cambio").value) || parseFloat(_config.custo_cambio) || 5.70;
+  return custoUsd ? custoUsd * cambio * 1.05 : 0;
+}
+
+function _piorCupom(preco){
+  let melhor=null, maxDesc=0;
+  (_cuponsCache||[]).forEach(c=>{
+    if(!c.ativo) return;
+    if(preco < (c.min_compra||0)) return;
+    let desc = c.tipo==="percent" ? preco*c.valor/100 : c.valor;
+    if(c.tipo==="percent" && (c.desconto_max||0)>0) desc=Math.min(desc, c.desconto_max);
+    desc=Math.min(desc, preco);
+    if(desc>maxDesc){ maxDesc=desc; melhor=c; }
+  });
+  return {cupom:melhor, desconto:maxDesc};
+}
+
+function _margemEm(preco, custoBrl, trafego, taxaPct){
+  const taxaMp = preco*taxaPct/100;
+  const lucro  = preco - custoBrl - trafego - taxaMp;
+  return {taxaMp, lucro, margem: preco>0 ? lucro/preco*100 : -100};
+}
+
+function verificarMargem(){
+  const box=document.getElementById("margem-alerta");
+  if(!box) return;
+  const preco=parseFloat(document.getElementById("prod-preco").value)||0;
+  const custoBrl=_custoBrlAtual();
+  if(!preco || !custoBrl){ box.style.display="none"; return; }
+  const trafego=parseFloat(document.getElementById("calc-trafego").value)||parseFloat(_config.custo_trafego_pedido)||10;
+  const taxaPct=parseFloat(_config.taxa_mp_pct)||3.5;
+
+  const base=_margemEm(preco, custoBrl, trafego, taxaPct);
+
+  // cenário com o cupom mais agressivo
+  const pc=_piorCupom(preco);
+  let extra="", margemRef=base.margem, lucroRef=base.lucro;
+  if(pc.cupom){
+    const precoC=preco-pc.desconto;
+    const cc=_margemEm(precoC, custoBrl, trafego, taxaPct);
+    margemRef=Math.min(margemRef, cc.margem);
+    lucroRef =Math.min(lucroRef, cc.lucro);
+    extra=`<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(0,0,0,.08);">
+      Com o cupom <strong>${pc.cupom.codigo}</strong> (−${_money(pc.desconto)}): lucro <strong>${_money(cc.lucro)}</strong> · margem <strong>${cc.margem.toFixed(1)}%</strong>${cc.lucro<0?' &nbsp;🚨 <strong>PREJUÍZO</strong>':''}
+    </div>`;
+  }
+
+  let cor,bg,icone,titulo;
+  if(lucroRef<0){ cor="#991b1b";bg="#fef2f2";icone="🚨";titulo="Você está no PREJUÍZO"; }
+  else if(margemRef<15){ cor="#92400e";bg="#fffbeb";icone="⚠️";titulo="Margem baixa"; }
+  else { cor="#166534";bg="#f0fdf4";icone="✅";titulo="Margem saudável"; }
+
+  box.style.display="block";
+  box.style.background=bg; box.style.color=cor; box.style.border="1px solid "+cor+"40";
+  box.innerHTML=`<strong>${icone} ${titulo} — ${base.margem.toFixed(1)}% de margem</strong><br>
+    Custo ${_money(custoBrl)} + tráfego ${_money(trafego)} + taxa MP ${_money(base.taxaMp)} → lucro <strong>${_money(base.lucro)}</strong> por venda.${extra}`;
+}
+
+async function garantirDadosMargem(){
+  try{
+    if(!_config || !Object.keys(_config).length){
+      const r=await API("/api/admin/config"); const d=await r.json(); _config=d.config||{};
+    }
+    if(!_cuponsCache.length){
+      const r=await API("/api/admin/cupons"); const d=await r.json(); _cuponsCache=d.cupons||[];
+    }
+  }catch(e){}
+  verificarMargem();
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────

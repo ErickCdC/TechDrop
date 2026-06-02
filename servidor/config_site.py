@@ -62,6 +62,33 @@ PADRAO = {
     "pixel_tiktok":    "",   # ex: C1A2B3...
     "google_analytics":"",   # ex: G-XXXXXXX
     "google_ads":      "",   # ex: AW-XXXXXXX
+
+    # Frete grátis progressivo (barra no carrinho)
+    "frete_gratis_ativo":  True,
+    "frete_gratis_minimo": 99.0,    # valor mínimo p/ frete grátis
+
+    # Cronômetro de oferta
+    "oferta_ativa":          False,
+    "oferta_titulo":         "Oferta por tempo limitado",
+    "oferta_tipo":           "ficticio",   # "ficticio" (reinicia por visitante) | "real" (data fixa)
+    "oferta_fim":            "",           # modo real: "2026-06-10T23:59" (data/hora limite)
+    "oferta_duracao_horas":  24,           # modo fictício: quantas horas o relógio mostra
+
+    # Popup de captura de e-mail + cupom de 1ª compra
+    "popup_ativo":   False,
+    "popup_titulo":  "Ganhe 10% no primeiro pedido",
+    "popup_texto":   "Cadastre seu e-mail e receba agora o cupom de boas-vindas.",
+    "popup_cupom":   "BEMVINDO10",
+    "popup_delay":   4,             # segundos até aparecer
+
+    # Indique e ganhe
+    "indicacao_ativa": True,
+    "indicacao_valor": 15.0,        # cashback em R$ p/ quem indica E p/ o indicado
+
+    # Parâmetros de custo (alerta de margem + dashboard de lucro)
+    "custo_cambio":          5.70,  # cotação USD->BRL usada nas contas
+    "custo_trafego_pedido":  10.0,  # gasto de anúncio estimado por pedido (R$)
+    "taxa_mp_pct":           4.99,  # taxa do Mercado Pago (% — cartão ~4.99, Pix ~0.99)
 }
 
 

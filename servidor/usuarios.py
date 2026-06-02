@@ -135,6 +135,70 @@ def marcar_avaliou(email: str, produto_id: str):
             db.put(COLECAO, email, u)
 
 
+# ── INDIQUE E GANHE ─────────────────────────────────────────────────────────────
+
+REF_INDEX = "ref_index"   # coleção: codigo -> email do indicador
+
+
+def obter_ou_criar_ref(email: str) -> str:
+    """Retorna (criando se preciso) o código de indicação do usuário."""
+    email = email.lower().strip()
+    u = db.get(COLECAO, email)
+    if not u:
+        return ""
+    if u.get("ref_codigo"):
+        return u["ref_codigo"]
+    # gera código curto e único
+    base = (u.get("nome", "") or email.split("@")[0])
+    base = "".join(ch for ch in base.upper() if ch.isalnum())[:5] or "TECH"
+    codigo = f"{base}{uuid.uuid4().hex[:4].upper()}"
+    u["ref_codigo"] = codigo
+    db.put(COLECAO, email, u)
+    db.put(REF_INDEX, codigo, {"email": email})
+    return codigo
+
+
+def registrar_indicacao(email_indicado: str, ref_codigo: str) -> bool:
+    """Marca que o indicado veio de um código (intenção). Crédito só na 1ª compra."""
+    if not ref_codigo:
+        return False
+    email_indicado = email_indicado.lower().strip()
+    ref = db.get(REF_INDEX, ref_codigo.strip().upper())
+    if not ref:
+        return False
+    indicador = ref.get("email", "")
+    if not indicador or indicador == email_indicado:
+        return False   # não pode indicar a si mesmo
+    u = db.get(COLECAO, email_indicado)
+    if not u or u.get("indicado_por") or u.get("indicacao_creditada"):
+        return False   # já tem indicador ou já foi creditado
+    u["indicado_por"] = indicador
+    db.put(COLECAO, email_indicado, u)
+    return True
+
+
+def creditar_indicacao(email_indicado: str, valor: float) -> dict:
+    """
+    Credita cashback para indicado e indicador na 1ª compra aprovada.
+    Idempotente: só credita uma vez por indicado.
+    """
+    email_indicado = email_indicado.lower().strip()
+    u = db.get(COLECAO, email_indicado)
+    if not u:
+        return {"ok": False}
+    if u.get("indicacao_creditada"):
+        return {"ok": False, "motivo": "ja_creditado"}
+    indicador = u.get("indicado_por")
+    if not indicador:
+        return {"ok": False, "motivo": "sem_indicador"}
+    # marca antes de creditar (evita corrida)
+    u["indicacao_creditada"] = True
+    db.put(COLECAO, email_indicado, u)
+    adicionar_cashback(email_indicado, valor, "Bônus por indicação (1ª compra)")
+    adicionar_cashback(indicador, valor, "Você indicou um amigo que comprou!")
+    return {"ok": True, "indicador": indicador, "valor": valor}
+
+
 # ── ENDEREÇOS SALVOS ───────────────────────────────────────────────────────────
 
 def listar_enderecos(email: str) -> list[dict]:
