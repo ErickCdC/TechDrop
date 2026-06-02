@@ -31,7 +31,10 @@
     /* PAINEL LOGADO */
     .conta-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
     .conta-header h1{font-size:22px;font-weight:900;}
-    .btn-sair{background:none;border:1px solid var(--border);color:var(--muted);padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;}
+    .btn-continuar{background:var(--accent);color:#fff;padding:10px 18px;border-radius:9px;font-size:14px;font-weight:700;text-decoration:none;white-space:nowrap;}
+    .btn-continuar:hover{background:var(--accent-h);}
+    .btn-sair{background:none;border:none;color:var(--muted);padding:8px 16px;font-size:13px;cursor:pointer;text-decoration:underline;}
+    .btn-sair:hover{color:var(--red);}
 
     .pedido-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;}
     .pedido-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
@@ -63,6 +66,18 @@
 
     .vazio{text-align:center;padding:48px 20px;color:var(--muted);}
     .vazio a{color:var(--accent);font-weight:600;text-decoration:none;}
+
+    @media(max-width:600px){
+      header{padding:12px 16px;}
+      .wrap{margin:16px auto;}
+      .auth-box{padding:24px;margin:20px auto;}
+      .conta-header{flex-direction:column;align-items:stretch;}
+      .conta-header h1{font-size:19px;}
+      .btn-continuar{text-align:center;}
+      .pedido-top{flex-direction:column;align-items:flex-start;}
+      .timeline{overflow-x:auto;}
+      .tl-label{font-size:10px;}
+    }
   </style>
 </head>
 <body>
@@ -106,10 +121,13 @@
   <div id="painel" style="display:none;">
     <div class="conta-header">
       <h1>Olá, <span id="user-nome">cliente</span> 👋</h1>
-      <button class="btn-sair" onclick="sair()">Sair</button>
+      <a href="/" class="btn-continuar">← Continuar comprando</a>
     </div>
     <h2 style="font-size:16px;font-weight:800;margin-bottom:16px;">Meus pedidos</h2>
     <div id="pedidos-lista"></div>
+    <div style="text-align:center;margin-top:28px;">
+      <button class="btn-sair" onclick="sair()">Sair da conta</button>
+    </div>
   </div>
 
 </div>
