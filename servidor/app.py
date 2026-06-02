@@ -227,6 +227,21 @@ def criar_checkout():
         "statement_descriptor": (config_site.obter().get("loja_nome", "LOJA")[:22]).upper(),
         "expires":             False,
     }
+
+    # ── FILTRA o método escolhido (Pix / Cartão / Boleto) ──────────────────────
+    metodo = body.get("metodo_pagamento", "")
+    todos = ["credit_card", "debit_card", "ticket", "bank_transfer", "atm", "prepaid_card"]
+    permitidos = {
+        "pix":    ["bank_transfer", "account_money"],
+        "cartao": ["credit_card", "debit_card"],
+        "boleto": ["ticket"],
+    }.get(metodo)
+    if permitidos:
+        preference["payment_methods"] = {
+            "excluded_payment_types": [{"id": t} for t in todos if t not in permitidos],
+            "installments": 12,
+        }
+
     # auto_return só é aceito pelo MP com URL pública https
     if LOJA_URL.startswith("https://"):
         preference["auto_return"] = "approved"
