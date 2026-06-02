@@ -452,9 +452,10 @@
       <input type="text" id="prod-link" placeholder="https://www.aliexpress.com/item/..."/>
     </div>
 
-    <!-- VARIANTES IMPORTADAS -->
+    <!-- VARIANTES (editáveis) -->
     <div id="variantes-importadas" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;">
-      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:10px;">Variantes disponíveis (cores/tamanhos)</div>
+      <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:10px;">Variantes — você pode renomear (ex: cor → Capacidade)</div>
+      <div id="variantes-editor"></div>
     </div>
 
     <!-- GANCHOS DE COPY -->
@@ -996,6 +997,7 @@ function abrirModalProduto(){
   document.getElementById("prod-destaque").value="false";
   document.getElementById("prod-sugerir").value="false";
   document.getElementById("prod-headline").value="";
+  renderVariantesEditor([]);
   document.getElementById("foto-preview-img").style.display="none";
   document.getElementById("foto-placeholder").style.display="block";
   document.getElementById("modal-produto").classList.add("show");
@@ -1016,6 +1018,7 @@ function editarProduto(p){
   document.getElementById("prod-sugerir").value=String(p.sugerir_carrinho===true);
   document.getElementById("prod-headline").value=p.headline||"";
   _especificacoesAtual = p.especificacoes||[];
+  renderVariantesEditor(p.variantes||[]);
   previewUrl(p.imagem||"");
   document.getElementById("modal-produto").classList.add("show");
 }
@@ -1042,6 +1045,31 @@ async function uploadFoto(input){
     previewUrl(d.url);
     toast("Foto enviada!");
   } else { toast(d.erro||"Erro no upload","erro"); }
+}
+
+// ── EDITOR DE VARIANTES ───────────────────────────────────────────────────────
+let _variantesAtual = [];
+function renderVariantesEditor(variantes){
+  _variantesAtual = JSON.parse(JSON.stringify(variantes || []));
+  const box = document.getElementById("variantes-importadas");
+  const ed = document.getElementById("variantes-editor");
+  if(!_variantesAtual.length){ box.style.display="none"; ed.innerHTML=""; return; }
+  box.style.display = "block";
+  ed.innerHTML = _variantesAtual.map((v,i)=>`
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <input type="text" value="${(v.nome||'').replace(/"/g,'&quot;')}" data-vi="${i}"
+          onchange="_variantesAtual[${i}].nome=this.value"
+          style="flex:1;background:#fff;border:1.5px solid var(--accent)40;border-radius:7px;padding:7px 10px;font-size:13px;font-weight:700;color:var(--text);"/>
+        <span style="font-size:11px;color:var(--muted);">nome da variante</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${(v.opcoes||[]).map(o=>{
+          const label = typeof o==="string"?o:(o.label||"");
+          return `<span style="background:#fff;border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-size:12px;">${label}</span>`;
+        }).join("")}
+      </div>
+    </div>`).join("");
 }
 
 // ── DESCRIÇÃO COM IA ──────────────────────────────────────────────────────────
@@ -1082,6 +1110,7 @@ async function salvarProduto(){
     destaque:     document.getElementById("prod-destaque").value==="true",
     sugerir_carrinho: document.getElementById("prod-sugerir").value==="true",
     headline:     document.getElementById("prod-headline").value,
+    variantes:    _variantesAtual,
   };
   if(!dados.titulo){toast("Nome do produto é obrigatório","erro");return;}
   if(!dados.preco_venda){toast("Preço de venda é obrigatório","erro");return;}
@@ -1395,18 +1424,8 @@ function _preencherModalImportado(d) {
         title="Clique para usar esta foto"/>`).join("");
   }
 
-  // Variantes
-  const varEl = document.getElementById("variantes-importadas");
-  if (varEl && d.variantes?.length) {
-    varEl.style.display = "block";
-    varEl.innerHTML = d.variantes.map(v => `
-      <div style="margin-bottom:8px;">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px;">${v.nome}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;">
-          ${v.opcoes.map(o => `<span style="background:var(--bg);border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-size:12px;">${o}</span>`).join("")}
-        </div>
-      </div>`).join("");
-  }
+  // Variantes editáveis
+  renderVariantesEditor(d.variantes || []);
 
   // Ganchos de copy
   const ganchosEl = document.getElementById("ganchos-importados");

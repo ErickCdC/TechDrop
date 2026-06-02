@@ -433,7 +433,15 @@ function selVar(vi,oi){
   selecao[v.nome]= typeof o==="string"?o:(o.label||"");
   selValueIds[vi]= o.valueId ?? null;
   document.getElementById(`sel-${vi}`).textContent=selecao[v.nome];
+  // Troca a foto principal para a imagem da variante selecionada
+  if(o && o.img) mostrarFotoVariante(o.img);
   casarSku();
+}
+function mostrarFotoVariante(src){
+  const norm = u => (u||"").replace(/_\d+x\d+[^.]*(\.[a-z]+)?.*$/i,"").replace(/\.(jpg|png|webp).*$/i,"");
+  let i = FOTOS.findIndex(f => norm(f) === norm(src));
+  if(i < 0){ FOTOS.unshift(src); renderGaleria(); i = 0; }
+  goto(i);
 }
 // Encontra o SKU do AliExpress que bate com TODAS as opções selecionadas
 function casarSku(){
