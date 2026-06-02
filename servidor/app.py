@@ -151,9 +151,17 @@ def criar_checkout():
     for item in itens:
         prod = catalogo.get(item.get("id"))
         if prod:
-            # força o preço real do servidor, ignora o que veio do navegador
-            item["preco_venda"] = prod["preco_venda"]
-            item["titulo"]      = prod.get("titulo", item.get("titulo"))
+            # Preço base do produto
+            preco = prod["preco_venda"]
+            # Se a variante (sku_attr) tem preço próprio, usa o da variante
+            sku_attr = item.get("sku_attr", "")
+            if sku_attr:
+                for s in prod.get("skus", []):
+                    if s.get("sku_attr") == sku_attr and s.get("preco_venda", 0) > 0:
+                        preco = s["preco_venda"]
+                        break
+            item["preco_venda"]     = preco   # força o preço real do servidor
+            item["titulo"]          = prod.get("titulo", item.get("titulo"))
             item["link_aliexpress"] = prod.get("link_aliexpress", "")
 
     subtotal = sum(i["preco_venda"] * i.get("quantidade", 1) for i in itens)

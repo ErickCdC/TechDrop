@@ -1,4 +1,11 @@
 const USD_BRL = 5.70, TRAFEGO = 10, GATEWAY_PCT = 3.5, MARGEM_ALVO = 25, FRETE_PCT = 5;
+// Calcula o preço de VENDA a partir do custo em BRL do AliExpress
+function precoVendaDeCusto(custoBrl){
+  if(!custoBrl || custoBrl <= 0) return 0;
+  const cb = custoBrl * (1 + FRETE_PCT/100);
+  let p = (cb + TRAFEGO) / (1 - (GATEWAY_PCT + MARGEM_ALVO)/100);
+  return Math.round(p/10)*10 - 1;
+}
 let _dadosCapturados = null;
 let _imgSelecionada  = "";
 
@@ -601,7 +608,10 @@ async function enviarParaPainel() {
     titulo:          d.titulo || "Produto AliExpress",
     imagem:          _imgSelecionada || d.imagens?.[0] || "",
     imagens_extra:   d.imagens || [],
-    preco_venda:     d._preco_venda || 99,
+    preco_venda:     (function(){
+                       const ps = (d.skus||[]).map(s=>precoVendaDeCusto(s.preco)).filter(p=>p>0);
+                       return ps.length ? Math.min(...ps) : (d._preco_venda || 99);
+                     })(),
     preco_de:        d._preco_de || 199,
     link_aliexpress: d.url,
     variantes:       d.variantes || [],
@@ -611,7 +621,7 @@ async function enviarParaPainel() {
     badge:           "Novo",
     categoria:       "acessorios",
     especificacoes:  d.especificacoes || [],
-    skus:            d.skus || [],
+    skus:            (d.skus || []).map(s => ({ ...s, preco_venda: precoVendaDeCusto(s.preco) })),
     descricao_imagens: d.descricao_imagens || [],
     descricao:       _montarDescricao(d),
   };

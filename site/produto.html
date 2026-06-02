@@ -444,17 +444,31 @@ function mostrarFotoVariante(src){
   goto(i);
 }
 // Encontra o SKU do AliExpress que bate com TODAS as opções selecionadas
+let _precoAtual = 0;
 function casarSku(){
   skuAtual=null;
-  if(!PRODUTO || !PRODUTO.skus || !PRODUTO.skus.length) return;
+  if(!PRODUTO) return;
+  _precoAtual = PRODUTO.preco_venda;
+  if(!PRODUTO.skus || !PRODUTO.skus.length){ atualizarPrecoExibido(); return; }
   const ids = selValueIds.filter(x=>x!=null).map(String);
-  if(!ids.length) return;
-  skuAtual = PRODUTO.skus.find(s=>{
-    const props = (s.prop_ids||"").split(",").map(x=>x.trim());
-    return ids.every(id=>props.includes(id)) || ids.every(id=>(s.sku_attr||"").includes(id));
-  }) || null;
-  // Se o SKU tem preço próprio diferente, mantém o preço de venda do produto
-  // (a margem já foi aplicada). Apenas guarda o sku_attr para a compra.
+  if(ids.length){
+    skuAtual = PRODUTO.skus.find(s=>{
+      const props = (s.prop_ids||"").split(",").map(x=>x.trim());
+      return ids.every(id=>props.includes(id)) || ids.every(id=>(s.sku_attr||"").includes(id));
+    }) || null;
+  }
+  // Preço da variante selecionada (cada capacidade/tamanho pode custar diferente)
+  if(skuAtual && skuAtual.preco_venda > 0) _precoAtual = skuAtual.preco_venda;
+  atualizarPrecoExibido();
+}
+function atualizarPrecoExibido(){
+  const p = _precoAtual || PRODUTO.preco_venda;
+  document.getElementById("p-preco").textContent = fmt(p);
+  const pde = Math.round(p*1.6);
+  document.getElementById("p-preco-de").textContent = fmt(pde);
+  const off = Math.round((1 - p/pde)*100);
+  document.getElementById("p-off").textContent = off>0?`-${off}%`:"";
+  document.getElementById("p-parc").textContent = `em até 3x de ${fmt(p/3)} sem juros`;
 }
 
 // REVIEWS
@@ -537,7 +551,7 @@ function adicionar(){
     id:PRODUTO.id,
     titulo_pt:PRODUTO.titulo+(variante?` (${variante})`:""),
     imagem:FOTOS[0],
-    preco_venda:PRODUTO.preco_venda,
+    preco_venda:_precoAtual || PRODUTO.preco_venda,
     quantidade:1,
     variante,
     sku_attr,                          // ← vai para a API de compra do AliExpress
