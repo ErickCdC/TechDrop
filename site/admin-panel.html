@@ -147,6 +147,7 @@
   <button class="nav-item" onclick="ir('produtos')"><span class="ic">📦</span> Produtos</button>
   <button class="nav-item" onclick="ir('pedidos')"><span class="ic">🛒</span> Pedidos</button>
   <button class="nav-item" onclick="ir('avaliacoes')"><span class="ic">⭐</span> Avaliações</button>
+  <button class="nav-item" onclick="ir('cupons')"><span class="ic">🎟️</span> Cupons</button>
   <button class="nav-item" onclick="ir('personalizar')"><span class="ic">🎨</span> Personalizar site</button>
   <button class="nav-item" onclick="ir('horarios')"><span class="ic">🕐</span> Horários</button>
   <div class="sidebar-footer">
@@ -243,6 +244,87 @@
   <div class="page" id="page-avaliacoes">
     <div class="page-header"><h1>Avaliações dos clientes</h1></div>
     <div id="avaliacoes-lista" style="display:grid;gap:12px;"></div>
+  </div>
+
+  <!-- CUPONS -->
+  <div class="page" id="page-cupons">
+    <div class="page-header">
+      <h1>Cupons de desconto</h1>
+      <button class="btn-primary" onclick="abrirModalCupom()">+ Novo cupom</button>
+    </div>
+    <div id="cupons-lista" style="display:grid;gap:10px;"></div>
+  </div>
+
+  <!-- MODAL CUPOM -->
+  <div class="modal-bg" id="modal-cupom">
+    <div class="modal" style="max-width:520px;">
+      <h2 id="cupom-modal-titulo">Novo cupom</h2>
+      <input type="hidden" id="cupom-codigo-original"/>
+      <div class="field-row">
+        <div class="field">
+          <label>Código do cupom</label>
+          <input type="text" id="cupom-codigo" placeholder="EX: BLACK20" style="text-transform:uppercase;"/>
+        </div>
+        <div class="field">
+          <label>Descrição</label>
+          <input type="text" id="cupom-descricao" placeholder="Ex: 20% off Black Friday"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Tipo de desconto</label>
+          <select id="cupom-tipo" onchange="atualizarCupomTipo()">
+            <option value="percent">Percentual (%)</option>
+            <option value="fixo">Valor fixo (R$)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label id="cupom-valor-label">Valor do desconto (%)</label>
+          <input type="number" id="cupom-valor" placeholder="10" step="0.01"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Compra mínima (R$)</label>
+          <input type="number" id="cupom-min" placeholder="0 = sem mínimo" step="0.01"/>
+        </div>
+        <div class="field">
+          <label id="cupom-descmax-label">Desconto máximo (R$) <span style="color:var(--muted);font-weight:400;">— só p/ %</span></label>
+          <input type="number" id="cupom-descmax" placeholder="0 = sem teto" step="0.01"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Limite de usos</label>
+          <input type="number" id="cupom-maxusos" placeholder="0 = ilimitado"/>
+        </div>
+        <div class="field">
+          <label>Validade (data)</label>
+          <input type="date" id="cupom-validade"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Segmento de clientes</label>
+          <select id="cupom-segmento">
+            <option value="todos">Todos os clientes</option>
+            <option value="primeira_compra">Apenas primeira compra</option>
+            <option value="logados">Apenas clientes logados</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select id="cupom-ativo">
+            <option value="true">Ativo</option>
+            <option value="false">Inativo</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="document.getElementById('modal-cupom').classList.remove('show')">Cancelar</button>
+        <button class="btn-primary" onclick="salvarCupom()">Salvar cupom</button>
+      </div>
+    </div>
   </div>
 
   <!-- PERSONALIZAR SITE -->
@@ -496,8 +578,107 @@ function ir(pagina) {
   if (pagina === "produtos")  carregarProdutos();
   if (pagina === "pedidos")   carregarPedidos();
   if (pagina === "avaliacoes") carregarAvaliacoesAdmin();
+  if (pagina === "cupons") carregarCupons();
   if (pagina === "personalizar") carregarConfigAdmin();
   if (pagina === "horarios")  renderHorariosFull();
+}
+
+// ── CUPONS ────────────────────────────────────────────────────────────────────
+const SEG_LABEL = {todos:"Todos", primeira_compra:"1ª compra", logados:"Logados"};
+
+async function carregarCupons(){
+  const el=document.getElementById("cupons-lista");
+  el.innerHTML='<div style="color:var(--muted);">Carregando...</div>';
+  const r=await API("/api/admin/cupons");
+  const d=await r.json();
+  if(!d.ok||!d.cupons.length){
+    el.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">Nenhum cupom criado ainda.</div>';
+    return;
+  }
+  el.innerHTML=d.cupons.map(c=>{
+    const valor = c.tipo==="percent" ? `${c.valor}%` : `R$ ${c.valor.toFixed(2).replace(".",",")}`;
+    const usos = c.max_usos>0 ? `${c.usos}/${c.max_usos}` : `${c.usos} usos`;
+    return `
+    <div style="background:var(--card);border:1px solid ${c.ativo?'var(--green)40':'var(--border)'};border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:160px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <strong style="font-size:16px;letter-spacing:1px;">${c.codigo}</strong>
+          <span style="background:var(--accent)20;color:var(--accent);font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;">${valor}</span>
+          ${c.ativo?'<span style="color:var(--green);font-size:11px;font-weight:700;">● ativo</span>':'<span style="color:var(--muted);font-size:11px;">○ inativo</span>'}
+        </div>
+        <div style="font-size:12px;color:var(--muted);">
+          ${c.descricao||''} · mín R$ ${c.min_compra} · ${SEG_LABEL[c.segmento]||c.segmento} · ${usos}${c.validade?` · até ${c.validade.split('-').reverse().join('/')}`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick='editarCupom(${JSON.stringify(c).replace(/'/g,"&#39;")})' style="background:var(--accent)20;color:var(--accent);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">Editar</button>
+        <button onclick="deletarCupom('${c.codigo}')" style="background:var(--red)20;color:var(--red);border:none;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">🗑️</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function atualizarCupomTipo(){
+  const tipo=document.getElementById("cupom-tipo").value;
+  document.getElementById("cupom-valor-label").textContent = tipo==="percent"?"Valor do desconto (%)":"Valor do desconto (R$)";
+  document.getElementById("cupom-descmax-label").style.opacity = tipo==="percent"?"1":"0.4";
+}
+
+function abrirModalCupom(){
+  document.getElementById("cupom-modal-titulo").textContent="Novo cupom";
+  document.getElementById("cupom-codigo-original").value="";
+  ["cupom-codigo","cupom-descricao","cupom-valor","cupom-min","cupom-descmax","cupom-maxusos","cupom-validade"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("cupom-tipo").value="percent";
+  document.getElementById("cupom-segmento").value="todos";
+  document.getElementById("cupom-ativo").value="true";
+  atualizarCupomTipo();
+  document.getElementById("cupom-codigo").disabled=false;
+  document.getElementById("modal-cupom").classList.add("show");
+}
+
+function editarCupom(c){
+  document.getElementById("cupom-modal-titulo").textContent="Editar cupom";
+  document.getElementById("cupom-codigo-original").value=c.codigo;
+  document.getElementById("cupom-codigo").value=c.codigo;
+  document.getElementById("cupom-codigo").disabled=true;
+  document.getElementById("cupom-descricao").value=c.descricao||"";
+  document.getElementById("cupom-tipo").value=c.tipo||"percent";
+  document.getElementById("cupom-valor").value=c.valor||"";
+  document.getElementById("cupom-min").value=c.min_compra||"";
+  document.getElementById("cupom-descmax").value=c.desconto_max||"";
+  document.getElementById("cupom-maxusos").value=c.max_usos||"";
+  document.getElementById("cupom-validade").value=c.validade||"";
+  document.getElementById("cupom-segmento").value=c.segmento||"todos";
+  document.getElementById("cupom-ativo").value=String(c.ativo!==false);
+  atualizarCupomTipo();
+  document.getElementById("modal-cupom").classList.add("show");
+}
+
+async function salvarCupom(){
+  const dados={
+    codigo:       document.getElementById("cupom-codigo").value.trim(),
+    descricao:    document.getElementById("cupom-descricao").value.trim(),
+    tipo:         document.getElementById("cupom-tipo").value,
+    valor:        parseFloat(document.getElementById("cupom-valor").value)||0,
+    min_compra:   parseFloat(document.getElementById("cupom-min").value)||0,
+    desconto_max: parseFloat(document.getElementById("cupom-descmax").value)||0,
+    max_usos:     parseInt(document.getElementById("cupom-maxusos").value)||0,
+    validade:     document.getElementById("cupom-validade").value,
+    segmento:     document.getElementById("cupom-segmento").value,
+    ativo:        document.getElementById("cupom-ativo").value==="true",
+  };
+  if(!dados.codigo){toast("Código é obrigatório","erro");return;}
+  if(!dados.valor){toast("Valor do desconto é obrigatório","erro");return;}
+  const r=await API("/api/admin/cupons",{method:"POST",body:JSON.stringify(dados)});
+  const d=await r.json();
+  if(d.ok){document.getElementById("modal-cupom").classList.remove("show");toast("Cupom salvo!");carregarCupons();}
+  else toast(d.erro||"Erro ao salvar","erro");
+}
+
+async function deletarCupom(codigo){
+  if(!confirm(`Excluir o cupom ${codigo}?`))return;
+  const r=await API(`/api/admin/cupons/${codigo}`,{method:"DELETE"});
+  if((await r.json()).ok){toast("Cupom excluído");carregarCupons();}
 }
 
 // ── PERSONALIZAR SITE ─────────────────────────────────────────────────────────

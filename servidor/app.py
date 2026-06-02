@@ -84,7 +84,33 @@ def index():
 @app.route("/api/cupom/validar", methods=["POST"])
 def validar_cupom():
     d = request.json or {}
-    return jsonify(cupons.validar(d.get("codigo", ""), float(d.get("subtotal", 0))))
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    user = usuarios.verificar_token(token) if token else None
+    email = (user or {}).get("email", "") or d.get("email", "")
+    return jsonify(cupons.validar(d.get("codigo", ""), float(d.get("subtotal", 0)),
+                                  email=email, logado=bool(user)))
+
+
+# ── ADMIN CUPONS ───────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/cupons", methods=["GET"])
+@login_required
+def admin_listar_cupons():
+    return jsonify({"ok": True, "cupons": cupons.listar()})
+
+@app.route("/api/admin/cupons", methods=["POST"])
+@login_required
+def admin_salvar_cupom():
+    try:
+        c = cupons.salvar(request.json or {})
+        return jsonify({"ok": True, "cupom": c})
+    except ValueError as e:
+        return jsonify({"ok": False, "erro": str(e)}), 400
+
+@app.route("/api/admin/cupons/<codigo>", methods=["DELETE"])
+@login_required
+def admin_deletar_cupom(codigo):
+    return jsonify({"ok": cupons.deletar(codigo)})
 
 
 @app.route("/api/checkout", methods=["POST"])
@@ -119,8 +145,11 @@ def criar_checkout():
     # ── CUPOM ──────────────────────────────────────────────────────────────────
     desconto = 0
     cupom_aplicado = None
+    _tok = request.headers.get("Authorization", "").replace("Bearer ", "")
+    _user = usuarios.verificar_token(_tok) if _tok else None
     if cupom_codigo:
-        res = cupons.validar(cupom_codigo, subtotal)
+        res = cupons.validar(cupom_codigo, subtotal,
+                             email=cliente.get("email", ""), logado=bool(_user))
         if res.get("ok"):
             desconto = res["desconto"]
             cupom_aplicado = res["codigo"]
