@@ -748,6 +748,30 @@ def admin_deletar_produto(pid):
     ok = produtos_db.deletar(pid)
     return jsonify({"ok": ok})
 
+@app.route("/api/admin/factory-reset", methods=["POST"])
+@login_required
+def admin_factory_reset():
+    """
+    RESET DE FÁBRICA — apaga produtos, pedidos, avaliações, disputas, usuários,
+    endereços, cupons e marcadores. MANTÉM config do site e token AliExpress.
+    Comando oculto: rode factoryReset() no console do painel admin.
+    """
+    confirmacao = (request.json or {}).get("confirmacao", "")
+    if confirmacao != "ZERAR TUDO":
+        return jsonify({"ok": False, "erro": "Confirmação inválida"}), 400
+
+    resultado = {}
+    for col in ["produtos", "pedidos", "avaliacoes", "disputas", "usuarios", "cupons"]:
+        resultado[col] = db.apagar_colecao(col)
+
+    # Remove marcadores de seed (mas mantém config_site e aliexpress_token)
+    for chave in ["produtos_semeados", "avaliacoes_semeadas", "cupons_semeados", "scheduler_lock"]:
+        db.deletar("_sistema", chave)
+
+    print(f"[RESET] Reset de fábrica executado: {resultado}")
+    return jsonify({"ok": True, "removidos": resultado})
+
+
 @app.route("/api/admin/limpar-tudo", methods=["POST"])
 @login_required
 def admin_limpar_tudo():

@@ -122,6 +122,15 @@ def deletar(colecao: str, chave: str) -> bool:
         return _run(_op)
 
 
+def apagar_colecao(colecao: str) -> int:
+    """Apaga todos os registros de uma coleção. Retorna quantos."""
+    def _op(cur):
+        cur.execute(f"DELETE FROM kv WHERE colecao = {_PH}", (colecao,))
+        return cur.rowcount
+    with _lock:
+        return _run(_op)
+
+
 def encontrar(colecao: str, campo: str, valor) -> dict | None:
     for item in listar(colecao):
         if item.get(campo) == valor:

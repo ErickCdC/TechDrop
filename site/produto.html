@@ -357,8 +357,14 @@ function render(d){
       </tr>`).join("")}
       </table>`;
   }
-  const txtDesc = p.descricao || "Produto de tecnologia com ótimo custo-benefício.";
+  const txtDesc = (p.descricao || "Produto de tecnologia com ótimo custo-benefício.").replace(/\n/g,"<br>");
   descHtml += `<h3 style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:12px;">Sobre o produto</h3><p>${txtDesc}</p>`;
+  // Imagens detalhadas da descrição (fotos e tabelas do anúncio original)
+  if (p.descricao_imagens && p.descricao_imagens.length) {
+    descHtml += `<div style="margin-top:24px;display:flex;flex-direction:column;gap:8px;max-width:760px;">` +
+      p.descricao_imagens.map(img=>`<img src="${img}" loading="lazy" style="width:100%;border-radius:8px;" onerror="this.style.display='none'"/>`).join("") +
+      `</div>`;
+  }
   document.getElementById("desc-text").innerHTML = descHtml;
 
   // Reviews

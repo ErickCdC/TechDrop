@@ -94,22 +94,41 @@ async function extrairDadosPagina() {
     }
   } catch (e) {}
 
+  // Extrai um objeto JSON BALANCEADO a partir de uma posição (evita cortar pela metade)
+  function jsonBalanceado(s, start) {
+    let depth = 0, inStr = false, esc = false;
+    for (let i = start; i < s.length; i++) {
+      const ch = s[i];
+      if (inStr) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') inStr = false; }
+      else { if (ch === '"') inStr = true; else if (ch === "{") depth++; else if (ch === "}") { depth--; if (depth === 0) return s.slice(start, i + 1); } }
+    }
+    return null;
+  }
+
   // ── FONTE PRINCIPAL: JSON embutido (runParams.data) ────────────────────────
-  // O AliExpress guarda preço, variantes e imagens num objeto JSON na página.
   let DATA = null;
   try {
     if (window.runParams && window.runParams.data) DATA = window.runParams.data;
   } catch (e) {}
   if (!DATA) {
-    // Procura nos scripts por window.runParams = {...}
     for (const s of document.scripts) {
       const t = s.textContent || "";
-      if (t.includes("runParams") && t.includes("priceModule")) {
-        const m = t.match(/data:\s*(\{.+?\}),\s*csrfToken/s) ||
-                  t.match(/window\.runParams\s*=\s*(\{.+?\});/s);
-        if (m) { try { DATA = JSON.parse(m[1]); } catch (e) {} }
-        if (DATA) break;
+      if (!t.includes("runParams") || !t.includes("priceModule")) continue;
+      // Procura "data:" e extrai o objeto JSON COMPLETO (balanceado)
+      let idx = t.indexOf("data:");
+      while (idx !== -1 && !DATA) {
+        const bs = t.indexOf("{", idx);
+        if (bs === -1) break;
+        const j = jsonBalanceado(t, bs);
+        if (j) { try { const o = JSON.parse(j); if (o.priceModule || o.skuModule || o.titleModule) DATA = o; } catch (e) {} }
+        idx = t.indexOf("data:", idx + 5);
       }
+      if (!DATA) {
+        const wi = t.indexOf("runParams");
+        const bs = t.indexOf("{", wi);
+        if (bs !== -1) { const j = jsonBalanceado(t, bs); if (j) { try { const o = JSON.parse(j); DATA = o.data || o; } catch (e) {} } }
+      }
+      if (DATA) break;
     }
   }
 
@@ -175,6 +194,10 @@ async function extrairDadosPagina() {
         estoque:   v.availQuantity || v.inventory || 0,
       };
     });
+
+    // URL da descrição completa (HTML separado do AliExpress)
+    const dm = DATA.descriptionModule || {};
+    resultado._desc_url = dm.descriptionUrl || dm.detailDesc || "";
 
     // Vídeo
     const vm = DATA.videoModule || {};
@@ -263,31 +286,47 @@ async function extrairDadosPagina() {
 
   resultado.imagens = resultado.imagens.slice(0, 10);
 
-  // VARIANTES via DOM (fallback se o JSON não trouxe)
-  if (resultado.variantes.length === 0) try {
+  // VARIANTES via DOM — SEMPRE roda e MESCLA (garante TODAS as opções visíveis)
+  try {
     const gruposVariante = document.querySelectorAll([
       "[class*='sku-item--property']",
       "[class*='product-prop']",
       ".pdp-comp-property",
-      "[class*='sku-property-list'] > li",
+      "[class*='sku-property-list']",
     ].join(","));
 
     gruposVariante.forEach(grupo => {
       const labelEl = grupo.querySelector(
         "[class*='property-title'], [class*='sku-title'], dt, label, .title"
       );
-      const nome = (labelEl?.textContent || "").trim().replace(":", "");
-      if (!nome || nome.length > 30) return;
+      let nome = (labelEl?.textContent || "").trim().replace(/[:：].*/,"").trim();
+      if (!nome || nome.length > 40) return;
 
       const opcoes = [];
-      grupo.querySelectorAll("li, [class*='sku-property-item'], dd span").forEach(op => {
+      const vistos = new Set();
+      grupo.querySelectorAll("[class*='sku-property-item'], li, [data-sku-col], button, dd span, [role='option']").forEach(op => {
         const img = op.querySelector("img");
-        const txt = op.textContent.trim();
-        if (img?.src) opcoes.push({ label: img.alt || txt, img: img.src });
-        else if (txt && txt.length < 40) opcoes.push({ label: txt });
+        const txt = (op.getAttribute("title") || op.textContent || "").trim();
+        if (!txt || txt.length > 60) return;
+        if (vistos.has(txt)) return; vistos.add(txt);
+        if (img?.src) opcoes.push({ label: img.alt || txt, img: img.src.startsWith("//") ? "https:"+img.src : img.src });
+        else opcoes.push({ label: txt });
       });
+      if (!opcoes.length) return;
 
-      if (opcoes.length > 0) resultado.variantes.push({ nome, opcoes: opcoes.slice(0, 15) });
+      // Mescla: se já existe essa propriedade (do JSON), usa a que tiver MAIS opções
+      const existente = resultado.variantes.find(v => v.nome.toLowerCase() === nome.toLowerCase());
+      if (existente) {
+        if (opcoes.length > existente.opcoes.length) {
+          // mantém os valueIds do JSON quando os labels baterem
+          existente.opcoes = opcoes.map(o => {
+            const m = existente.opcoes.find(x => x.label.toLowerCase() === o.label.toLowerCase());
+            return m ? { ...o, valueId: m.valueId } : o;
+          });
+        }
+      } else {
+        resultado.variantes.push({ nome, opcoes: opcoes.slice(0, 60) });
+      }
     });
   } catch(e) {}
 
@@ -338,6 +377,29 @@ async function extrairDadosPagina() {
       if (!achou) break;             // sem mais páginas
       if (resultado.reviews.length >= 40) break;
     }
+  }
+
+  // ── DESCRIÇÃO COMPLETA (HTML separado do AliExpress) ───────────────────────
+  if (resultado._desc_url) {
+    try {
+      let url = resultado._desc_url;
+      if (url.startsWith("//")) url = "https:" + url;
+      const html = await (await fetch(url, { credentials: "include" })).text();
+      // Imagens da descrição (fotos detalhadas, tabelas em imagem)
+      const imgs = [];
+      for (const m of html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)) {
+        let u = m[1]; if (u.startsWith("//")) u = "https:" + u;
+        if (u.startsWith("http") && !imgs.includes(u)) imgs.push(u);
+      }
+      resultado.descricao_imagens = imgs.slice(0, 20);
+      // Texto da descrição (limpo de scripts/estilos/tags)
+      const texto = html
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/<style[\s\S]*?<\/style>/gi, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+      resultado.descricao_texto = texto.slice(0, 3000);
+    } catch (e) {}
   }
 
   return resultado;
@@ -421,11 +483,12 @@ function renderPreview(d) {
 
 // Monta uma descrição a partir do título + especificações capturadas
 function _montarDescricao(d) {
-  let txt = "";
+  const partes = [];
   if (d.especificacoes && d.especificacoes.length) {
-    txt = d.especificacoes.slice(0, 12).map(e => `${e.nome}: ${e.valor}`).join(". ");
+    partes.push(d.especificacoes.slice(0, 15).map(e => `${e.nome}: ${e.valor}`).join(". "));
   }
-  return txt || d.titulo || "";
+  if (d.descricao_texto) partes.push(d.descricao_texto);
+  return partes.join("\n\n") || d.titulo || "";
 }
 
 // ── ENVIAR PARA O PAINEL ──────────────────────────────────────────────────────
@@ -454,6 +517,7 @@ async function enviarParaPainel() {
     categoria:       "acessorios",
     especificacoes:  d.especificacoes || [],
     skus:            d.skus || [],
+    descricao_imagens: d.descricao_imagens || [],
     descricao:       _montarDescricao(d),
   };
 

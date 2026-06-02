@@ -718,6 +718,23 @@ const CFG_CAMPOS = [
 ];
 
 let _config = {};
+// ── COMANDO OCULTO: RESET DE FÁBRICA ──────────────────────────────────────────
+// Use no console do navegador (F12): factoryReset()
+window.factoryReset = async function(){
+  const c1 = prompt("⚠️ RESET DE FÁBRICA\n\nIsso APAGA produtos, pedidos, avaliações, usuários e cupons.\nMantém: configurações do site e conexão AliExpress.\n\nDigite exatamente: ZERAR TUDO");
+  if(c1 !== "ZERAR TUDO"){ console.log("Reset cancelado."); return; }
+  if(!confirm("Tem certeza ABSOLUTA? Esta ação não pode ser desfeita.")) return;
+  try{
+    const r = await API("/api/admin/factory-reset", {method:"POST", body:JSON.stringify({confirmacao:"ZERAR TUDO"})});
+    const d = await r.json();
+    if(d.ok){
+      console.log("✅ Reset de fábrica concluído:", d.removidos);
+      alert("Loja zerada! Removidos: " + JSON.stringify(d.removidos));
+      location.reload();
+    } else { alert("Erro: " + d.erro); }
+  }catch(e){ alert("Erro: " + e.message); }
+};
+
 async function carregarConfigAdmin(){
   const r = await API("/api/admin/config");
   const d = await r.json();
