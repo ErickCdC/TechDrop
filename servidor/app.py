@@ -21,7 +21,7 @@ try:
     from servidor.importador import importar_produto
     from servidor.emails import (confirmacao_pedido, notificar_rastreio,
                                   notificar_entregue, notificar_disputa_aberta,
-                                  recuperar_carrinho)
+                                  notificar_cancelamento, recuperar_carrinho)
     from servidor.rastreio import registrar_rastreio, consultar_status, verificar_todos_pedidos
     from servidor.disputas import (abrir_disputa, listar_disputas,
                                     atualizar_disputa, aprovar_reembolso,
@@ -38,7 +38,7 @@ except ImportError:
     from importador import importar_produto
     from emails import (confirmacao_pedido, notificar_rastreio,
                         notificar_entregue, notificar_disputa_aberta,
-                        recuperar_carrinho)
+                        notificar_cancelamento, recuperar_carrinho)
     from rastreio import registrar_rastreio, consultar_status, verificar_todos_pedidos
     from disputas import (abrir_disputa, listar_disputas,
                           atualizar_disputa, aprovar_reembolso,
@@ -854,6 +854,82 @@ def admin_reembolsar(pedido_id):
         return jsonify({"ok": False, "erro": r.text}), 400
     except Exception as e:
         return jsonify({"ok": False, "erro": str(e)}), 500
+
+
+@app.route("/api/admin/pedidos/<pedido_id>/cancelar", methods=["POST"])
+@login_required
+def admin_cancelar_pedido(pedido_id):
+    """
+    Cancelamento completo (anti-erro): reembolsa o cliente no Mercado Pago,
+    tenta cancelar o pedido no AliExpress, marca como cancelado e avisa o cliente.
+    Retorna um relatório por etapa — nada trava se uma das etapas falhar.
+    """
+    pedido = _carregar_pedido(pedido_id.upper())
+    if not pedido:
+        return jsonify({"ok": False, "erro": "Pedido não encontrado"}), 404
+
+    if pedido.get("status") == "cancelado":
+        return jsonify({"ok": True, "msg": "Pedido já estava cancelado",
+                        "etapas": pedido.get("cancelamento", {})})
+
+    motivo = (request.json or {}).get("motivo", "").strip()
+    etapas = {"reembolso": "—", "aliexpress": "—", "email": "—"}
+
+    # 1) Reembolso no Mercado Pago (se houve pagamento e ainda não foi reembolsado)
+    payment_id = pedido.get("payment_id")
+    if pedido.get("status") == "reembolsado":
+        etapas["reembolso"] = "Já havia sido reembolsado"
+    elif payment_id:
+        try:
+            r = httpx.post(
+                f"https://api.mercadopago.com/v1/payments/{payment_id}/refunds",
+                headers={**MP_HEADERS, "X-Idempotency-Key": f"cancel-{pedido_id}"},
+                json={}, timeout=15,
+            )
+            if r.status_code in (200, 201):
+                etapas["reembolso"] = "✓ Reembolso solicitado ao Mercado Pago"
+            else:
+                etapas["reembolso"] = f"⚠️ Falhou no MP: {r.text[:160]}"
+        except Exception as e:
+            etapas["reembolso"] = f"⚠️ Erro ao reembolsar: {e}"
+    else:
+        etapas["reembolso"] = "Sem pagamento registrado (nada a reembolsar)"
+
+    # 2) Cancelamento no AliExpress (se o pedido já foi enviado para lá)
+    ali_id = pedido.get("ali_order_id")
+    if ali_id:
+        try:
+            try:
+                from servidor import fornecedor
+            except ImportError:
+                import fornecedor
+            res = fornecedor.cancelar_pedido_aliexpress(ali_id)
+            etapas["aliexpress"] = ("✓ Cancelado no AliExpress" if res.get("ok")
+                                    else f"⚠️ {res.get('motivo', 'cancele manualmente no painel do AliExpress')}")
+        except Exception as e:
+            etapas["aliexpress"] = f"⚠️ Erro: {e} — cancele manualmente no painel do AliExpress"
+    else:
+        etapas["aliexpress"] = "Compra não foi enviada ao AliExpress (nada a cancelar lá)"
+
+    # 3) Atualiza o pedido
+    reembolsou = etapas["reembolso"].startswith("✓") or "Já havia" in etapas["reembolso"]
+    pedido["status"]        = "cancelado"
+    pedido["cancelado_em"]  = datetime.now().isoformat()
+    pedido["cancel_motivo"] = motivo
+    pedido["cancelamento"]  = etapas
+    _salvar_pedido(pedido)
+
+    # 4) Avisa o cliente
+    try:
+        ok = notificar_cancelamento(pedido, motivo, reembolsado=bool(payment_id))
+        etapas["email"] = "✓ Cliente avisado por e-mail" if ok else "⚠️ E-mail não enviado (verifique RESEND_API_KEY)"
+    except Exception as e:
+        etapas["email"] = f"⚠️ Erro no e-mail: {e}"
+
+    pedido["cancelamento"] = etapas
+    _salvar_pedido(pedido)
+    print(f"[CANCELAMENTO] Pedido {pedido_id} cancelado · {etapas}")
+    return jsonify({"ok": True, "etapas": etapas})
 
 
 @app.route("/api/admin/pedidos/<pedido_id>/fulfillment", methods=["POST"])

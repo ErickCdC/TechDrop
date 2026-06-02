@@ -1169,7 +1169,7 @@ async function carregarPedidos() {
 function filtrarPedidos(tipo) {
   if (tipo === "todos")    return renderPedidosCards(_pedidosTodos);
   if (tipo === "aprovado") return renderPedidosCards(_pedidosTodos.filter(p => p.status === "approved" || p.status === "pagamento_aprovado"));
-  if (tipo === "pendente") return renderPedidosCards(_pedidosTodos.filter(p => !["approved","pagamento_aprovado","comprado_aliexpress","reembolsado"].includes(p.status)));
+  if (tipo === "pendente") return renderPedidosCards(_pedidosTodos.filter(p => !["approved","pagamento_aprovado","comprado_aliexpress","reembolsado","cancelado"].includes(p.status)));
 }
 
 function _statusLabel(s) {
@@ -1180,6 +1180,7 @@ function _statusLabel(s) {
     "aguardando_pagamento":{label:"⏳ Aguardando",   cls:"aguardando"},
     "pending":             {label:"⏳ Pendente",     cls:"pendente"},
     "reembolsado":         {label:"↩️ Reembolsado", cls:"aguardando"},
+    "cancelado":           {label:"🚫 Cancelado",   cls:"pendente"},
   };
   return m[s] || {label: s || "—", cls: "aguardando"};
 }
@@ -1271,12 +1272,20 @@ function renderPedidosCards(pedidos) {
           style="background:var(--accent)20;color:var(--accent);border:1px solid var(--accent)40;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
           📮 ${p.rastreio ? "Atualizar rastreio" : "Adicionar rastreio"}
         </button>` : ""}
-        ${["approved","pagamento_aprovado"].includes(p.status) ? `
-        <button onclick="reembolsar('${p.id}')"
+        ${!["cancelado","reembolsado"].includes(p.status) ? `
+        <button onclick="cancelarPedido('${p.id}')"
           style="background:var(--red)20;color:var(--red);border:1px solid var(--red)40;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
-          ↩️ Reembolsar
+          🚫 Cancelar pedido + reembolsar
         </button>` : ""}
       </div>
+      ${p.cancelamento ? `
+      <div style="margin-top:10px;background:var(--red)10;border:1px solid var(--red)30;border-radius:8px;padding:10px 12px;font-size:12px;color:var(--muted);">
+        <strong style="color:var(--red);">Cancelamento:</strong><br/>
+        💸 ${p.cancelamento.reembolso||'—'}<br/>
+        📦 ${p.cancelamento.aliexpress||'—'}<br/>
+        ✉️ ${p.cancelamento.email||'—'}
+        ${p.cancel_motivo?`<br/>📝 Motivo: ${p.cancel_motivo}`:''}
+      </div>` : ""}
     </div>`;
   }).join("");
 }
@@ -1312,12 +1321,19 @@ async function salvarRastreio() {
   } else toast("Erro: " + d.erro, "erro");
 }
 
-async function reembolsar(id) {
-  if (!confirm(`Confirma o reembolso do pedido #${id}? O valor será devolvido ao cliente.`)) return;
-  const r = await API(`/api/admin/pedidos/${id}/reembolsar`, {method:"POST", body:JSON.stringify({})});
+async function cancelarPedido(id) {
+  if (!confirm(`Cancelar o pedido #${id}?\n\nIsto vai:\n• Reembolsar o cliente no Mercado Pago\n• Tentar cancelar o pedido no AliExpress\n• Marcar como cancelado e avisar o cliente por e-mail\n\nEsta ação não pode ser desfeita.`)) return;
+  const motivo = prompt("Motivo do cancelamento (opcional, aparece no e-mail ao cliente):", "") || "";
+  toast("Processando cancelamento...");
+  const r = await API(`/api/admin/pedidos/${id}/cancelar`, {method:"POST", body:JSON.stringify({motivo})});
   const d = await r.json();
-  if (d.ok) { toast("Reembolso solicitado com sucesso!"); carregarPedidos(); }
-  else toast("Erro: " + d.erro, "erro");
+  if (d.ok) {
+    const e = d.etapas || {};
+    alert("Pedido cancelado.\n\n💸 Reembolso: "+(e.reembolso||"—")+
+          "\n📦 AliExpress: "+(e.aliexpress||"—")+
+          "\n✉️ Cliente: "+(e.email||"—"));
+    carregarPedidos();
+  } else toast("Erro: " + (d.erro||"falha"), "erro");
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────

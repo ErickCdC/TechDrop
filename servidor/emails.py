@@ -274,3 +274,44 @@ def notificar_disputa_aberta(pedido: dict, motivo: str):
     </p>""")
 
     return _enviar(email, f"⚙️ Solicitação #{pid} em análise — {LOJA_NOME}", html)
+
+
+# ── PEDIDO CANCELADO + REEMBOLSO ──────────────────────────────────────────────
+
+def notificar_cancelamento(pedido: dict, motivo: str = "", reembolsado: bool = True):
+    cliente = pedido.get("cliente", {})
+    email   = cliente.get("email", "") or pedido.get("usuario_email", "")
+    nome    = cliente.get("nome", "Cliente")
+    pid     = pedido.get("id", "")
+    total   = pedido.get("total", 0)
+
+    if not email:
+        return False
+
+    bloco_reembolso = (f"""
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:20px 0;">
+      <p style="margin:0;font-size:14px;color:#166534;">
+        💸 <strong>Reembolso de R$ {total:.2f}</strong> solicitado com sucesso.<br/>
+        O valor volta para a mesma forma de pagamento usada na compra.<br/>
+        <strong>Prazo:</strong> Pix em até 1 dia útil · Cartão em até 1–2 faturas (regra da operadora).
+      </p>
+    </div>""" if reembolsado else f"""
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin:20px 0;">
+      <p style="margin:0;font-size:14px;color:#1d4ed8;">
+        Seu pedido foi cancelado. Se algum valor foi cobrado, o estorno será processado em breve.
+      </p>
+    </div>""")
+
+    motivo_html = (f"""<p style="color:#6b7280;font-size:13px;"><strong>Motivo:</strong> {motivo}</p>"""
+                   if motivo else "")
+
+    html = _base(f"""
+    <h2 style="color:#111827;margin-bottom:8px;">Pedido cancelado</h2>
+    <p style="color:#6b7280;">Olá <strong>{nome}</strong>, seu pedido <strong>#{pid}</strong> foi cancelado.</p>
+    {bloco_reembolso}
+    {motivo_html}
+    <p style="color:#6b7280;font-size:13px;">
+      Pedimos desculpas pelo transtorno. Qualquer dúvida, é só responder este e-mail. 💙
+    </p>""")
+
+    return _enviar(email, f"Pedido #{pid} cancelado — reembolso a caminho", html)

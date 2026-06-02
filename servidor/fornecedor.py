@@ -230,3 +230,53 @@ def criar_pedido_automatico(pedido: dict) -> dict:
         return {"ok": False, "manual": True, "motivo": f"AliExpress recusou: {data}"}
     except Exception as e:
         return {"ok": False, "manual": True, "motivo": f"Erro de conexão: {e}"}
+
+
+def cancelar_pedido_aliexpress(ali_order_id: str) -> dict:
+    """
+    Tenta cancelar um pedido já criado no AliExpress via API oficial (best-effort).
+
+    Importante: o cancelamento via API só funciona enquanto o pedido ainda NÃO foi
+    pago/despachado pelo fornecedor. Depois disso, é preciso abrir solicitação de
+    reembolso direto no painel do AliExpress. Por isso, em qualquer falha devolvemos
+    {ok:False, manual:True} com instrução clara — nunca travamos o fluxo do site.
+
+    Retorna: {ok, manual?, motivo?, raw?}
+    """
+    if not ali_order_id:
+        return {"ok": False, "manual": True,
+                "motivo": "Pedido não tem número do AliExpress (compra não foi automática)."}
+    if not automacao_ativa():
+        return {"ok": False, "manual": True,
+                "motivo": "API AliExpress não configurada — cancele manualmente no painel do AliExpress."}
+
+    params = {
+        "method":       "aliexpress.ds.order.cancel",
+        "app_key":      ALI_DS_APP_KEY,
+        "access_token": get_token(),
+        "timestamp":    str(int(time.time() * 1000)),
+        "format":       "json",
+        "v":            "2.0",
+        "sign_method":  "sha256",
+        "param0":       json.dumps({"order_id": str(ali_order_id)}, ensure_ascii=False),
+    }
+    params["sign"] = _sign(params, ALI_DS_APP_SECRET)
+
+    try:
+        r = httpx.post(API_URL, data=params, timeout=30)
+        data = r.json()
+        # Procura algum indicador de sucesso na resposta (estrutura varia por versão da API)
+        resp = (data.get("aliexpress_ds_order_cancel_response", {})
+                    .get("result", {}) or data)
+        sucesso = bool(resp.get("is_success") or resp.get("success")
+                       or str(resp.get("result_success", "")).lower() == "true")
+        if sucesso:
+            print(f"[ALI CANCEL] ✓ Pedido AliExpress {ali_order_id} cancelado")
+            return {"ok": True, "raw": resp}
+        return {"ok": False, "manual": True,
+                "motivo": "AliExpress não confirmou o cancelamento automático — "
+                          "cancele/solicite reembolso manualmente no painel do AliExpress.",
+                "raw": data}
+    except Exception as e:
+        return {"ok": False, "manual": True,
+                "motivo": f"Erro ao falar com o AliExpress: {e} — cancele manualmente no painel."}
