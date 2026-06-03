@@ -1367,6 +1367,82 @@ def admin_listar_leads():
     leads = sorted(db.listar("leads"), key=lambda x: x.get("criado_em", ""), reverse=True)
     return jsonify({"ok": True, "leads": leads, "total": len(leads)})
 
+
+# ── USUÁRIOS (visão completa no admin) ─────────────────────────────────────────
+
+@app.route("/api/admin/usuarios", methods=["GET"])
+@login_required
+def admin_listar_usuarios():
+    """Lista completa de clientes com dados agregados (sem expor senha)."""
+    todos   = db.listar("usuarios")
+    pedidos = _listar_pedidos()
+    aprovados_status = ("approved", "pagamento_aprovado", "comprado_aliexpress", "entregue")
+
+    # pré-agrupa pedidos por e-mail do cliente
+    por_email = {}
+    for p in pedidos:
+        em = (p.get("usuario_email") or p.get("cliente", {}).get("email", "") or "").lower()
+        if em:
+            por_email.setdefault(em, []).append(p)
+
+    lista = []
+    for u in todos:
+        email = (u.get("email") or "").lower()
+        peds  = por_email.get(email, [])
+        aprov = [p for p in peds if p.get("status") in aprovados_status]
+        gasto = sum(p.get("total", 0) for p in aprov)
+        lista.append({
+            "nome":        u.get("nome", ""),
+            "email":       email,
+            "criado_em":   u.get("criado_em", ""),
+            "cashback":    round(u.get("cashback", 0), 2),
+            "enderecos":   len(u.get("enderecos", []) or ([u["endereco"]] if u.get("endereco") else [])),
+            "telefone":    (u.get("endereco", {}) or {}).get("telefone", ""),
+            "ref_codigo":  u.get("ref_codigo", ""),
+            "indicado_por": u.get("indicado_por", ""),
+            "indicacao_creditada": bool(u.get("indicacao_creditada")),
+            "total_pedidos":   len(peds),
+            "pedidos_aprovados": len(aprov),
+            "total_gasto":     round(gasto, 2),
+            "ultimo_pedido":   max((p.get("criado_em", "") for p in peds), default=""),
+        })
+
+    # ordena por mais recente cadastro
+    lista.sort(key=lambda x: x.get("criado_em", ""), reverse=True)
+
+    # quantos clientes cada indicador trouxe (creditados)
+    indicacoes = {}
+    for u in lista:
+        ind = (u["indicado_por"] or "").lower()
+        if ind and u["indicacao_creditada"]:
+            indicacoes[ind] = indicacoes.get(ind, 0) + 1
+    for u in lista:
+        u["indicou"] = indicacoes.get(u["email"], 0)
+
+    resumo = {
+        "total":          len(lista),
+        "com_compra":     len([u for u in lista if u["pedidos_aprovados"] > 0]),
+        "receita_total":  round(sum(u["total_gasto"] for u in lista), 2),
+        "cashback_total": round(sum(u["cashback"] for u in lista), 2),
+    }
+    return jsonify({"ok": True, "usuarios": lista, "resumo": resumo})
+
+
+@app.route("/api/admin/usuarios/<email>", methods=["GET"])
+@login_required
+def admin_detalhe_usuario(email):
+    """Detalhe de um cliente: dados, endereços, cashback e histórico de pedidos."""
+    email = email.lower()
+    u = db.get("usuarios", email)
+    if not u:
+        return jsonify({"ok": False, "erro": "Cliente não encontrado"}), 404
+    u = {**u}
+    u.pop("senha_hash", None)
+    peds = [p for p in _listar_pedidos()
+            if (p.get("usuario_email") or p.get("cliente", {}).get("email", "") or "").lower() == email]
+    peds.sort(key=lambda p: p.get("criado_em", ""), reverse=True)
+    return jsonify({"ok": True, "usuario": u, "pedidos": peds})
+
 @app.route("/api/admin/config", methods=["GET"])
 @login_required
 def admin_get_config():

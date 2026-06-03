@@ -146,6 +146,7 @@
   <button class="nav-item ativo" onclick="ir('dashboard')"><span class="ic">📊</span> Dashboard</button>
   <button class="nav-item" onclick="ir('produtos')"><span class="ic">📦</span> Produtos</button>
   <button class="nav-item" onclick="ir('pedidos')"><span class="ic">🛒</span> Pedidos</button>
+  <button class="nav-item" onclick="ir('usuarios')"><span class="ic">👥</span> Usuários</button>
   <button class="nav-item" onclick="ir('avaliacoes')"><span class="ic">⭐</span> Avaliações</button>
   <button class="nav-item" onclick="ir('cupons')"><span class="ic">🎟️</span> Cupons</button>
   <button class="nav-item" onclick="ir('personalizar')"><span class="ic">🎨</span> Personalizar site</button>
@@ -274,6 +275,36 @@
 
     <!-- CARDS DE PEDIDO -->
     <div id="pedidos-cards" style="display:grid;gap:14px;"></div>
+  </div>
+
+  <!-- USUÁRIOS -->
+  <div class="page" id="page-usuarios">
+    <div class="page-header">
+      <h1>Usuários</h1>
+      <input id="user-busca" type="text" placeholder="Buscar por nome ou e-mail..." oninput="filtrarUsuarios()"
+        style="padding:9px 14px;border:1px solid var(--border);border-radius:9px;font-size:13px;background:var(--card);color:inherit;min-width:240px;"/>
+    </div>
+    <div class="metricas" id="user-resumo" style="margin-bottom:16px;"></div>
+    <div class="painel" style="padding:0;overflow-x:auto;">
+      <table class="tabela" id="tabela-usuarios" style="min-width:760px;">
+        <thead><tr>
+          <th>Cliente</th><th>Cadastro</th><th>Pedidos</th><th>Total gasto</th>
+          <th>Cashback</th><th>Indicações</th><th></th>
+        </tr></thead>
+        <tbody id="tbody-usuarios"><tr><td colspan="7" style="color:var(--muted);text-align:center;padding:24px;">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL DETALHE DO USUÁRIO -->
+  <div class="modal-bg" id="modal-usuario">
+    <div class="modal" style="max-width:560px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h2 id="mu-nome" style="margin:0;">Cliente</h2>
+        <button onclick="document.getElementById('modal-usuario').classList.remove('show')" style="background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;">&times;</button>
+      </div>
+      <div id="mu-corpo" style="padding:4px 2px;"></div>
+    </div>
   </div>
 
   <!-- AVALIAÇÕES -->
@@ -617,10 +648,118 @@ function ir(pagina) {
   if (pagina === "dashboard") carregarDashboard();
   if (pagina === "produtos")  carregarProdutos();
   if (pagina === "pedidos")   carregarPedidos();
+  if (pagina === "usuarios")  carregarUsuarios();
   if (pagina === "avaliacoes") carregarAvaliacoesAdmin();
   if (pagina === "cupons") carregarCupons();
   if (pagina === "personalizar") carregarConfigAdmin();
   if (pagina === "horarios")  renderHorariosFull();
+}
+
+// ── USUÁRIOS ──────────────────────────────────────────────────────────────────
+let _usuariosCache = [];
+const _fmtBR = v => "R$ " + Number(v||0).toFixed(2).replace(".",",");
+const _dataBR = s => s ? s.slice(0,10).split("-").reverse().join("/") : "—";
+
+async function carregarUsuarios(){
+  const tb=document.getElementById("tbody-usuarios");
+  tb.innerHTML='<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:24px;">Carregando...</td></tr>';
+  try{
+    const r=await API("/api/admin/usuarios");
+    const d=await r.json();
+    _usuariosCache=d.usuarios||[];
+    const re=d.resumo||{};
+    document.getElementById("user-resumo").innerHTML=`
+      <div class="met-card"><div class="lbl">Clientes cadastrados</div><div class="val">${re.total||0}</div></div>
+      <div class="met-card"><div class="lbl">Já compraram</div><div class="val" style="color:var(--green)">${re.com_compra||0}</div></div>
+      <div class="met-card"><div class="lbl">Receita destes clientes</div><div class="val">${_fmtBR(re.receita_total)}</div></div>
+      <div class="met-card"><div class="lbl">Cashback acumulado</div><div class="val" style="color:var(--accent)">${_fmtBR(re.cashback_total)}</div></div>`;
+    renderUsuarios(_usuariosCache);
+  }catch(e){
+    tb.innerHTML='<tr><td colspan="7" style="color:var(--red);text-align:center;padding:24px;">Erro ao carregar clientes.</td></tr>';
+  }
+}
+
+function renderUsuarios(lista){
+  const tb=document.getElementById("tbody-usuarios");
+  if(!lista.length){ tb.innerHTML='<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:24px;">Nenhum cliente encontrado.</td></tr>'; return; }
+  tb.innerHTML=lista.map(u=>`
+    <tr>
+      <td>
+        <div style="font-weight:700;">${u.nome||"—"}</div>
+        <div style="font-size:12px;color:var(--muted);">${u.email}</div>
+        ${u.indicado_por?`<div style="font-size:11px;color:var(--accent);">↳ indicado por ${u.indicado_por}</div>`:""}
+      </td>
+      <td style="color:var(--muted);">${_dataBR(u.criado_em)}</td>
+      <td>${u.pedidos_aprovados}/${u.total_pedidos}</td>
+      <td style="font-weight:700;color:var(--green)">${_fmtBR(u.total_gasto)}</td>
+      <td style="color:var(--accent);font-weight:700;">${_fmtBR(u.cashback)}</td>
+      <td>${u.indicou>0?`<span style="background:var(--green)20;color:var(--green);font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;">🎁 ${u.indicou}</span>`:"—"}</td>
+      <td style="text-align:right;">
+        <button onclick="verUsuario('${u.email}')" style="background:var(--accent)15;color:var(--accent);border:none;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;">Ver</button>
+      </td>
+    </tr>`).join("");
+}
+
+function filtrarUsuarios(){
+  const q=(document.getElementById("user-busca").value||"").toLowerCase().trim();
+  if(!q) return renderUsuarios(_usuariosCache);
+  renderUsuarios(_usuariosCache.filter(u=>
+    (u.nome||"").toLowerCase().includes(q) || (u.email||"").toLowerCase().includes(q)));
+}
+
+async function verUsuario(email){
+  const corpo=document.getElementById("mu-corpo");
+  document.getElementById("mu-nome").textContent="Carregando...";
+  corpo.innerHTML="";
+  document.getElementById("modal-usuario").classList.add("show");
+  try{
+    const r=await API("/api/admin/usuarios/"+encodeURIComponent(email));
+    const d=await r.json();
+    if(!d.ok){ corpo.innerHTML=`<p style="color:var(--red);">${d.erro||"Erro"}</p>`; return; }
+    const u=d.usuario, peds=d.pedidos||[];
+    document.getElementById("mu-nome").textContent=u.nome||"Cliente";
+
+    // endereços
+    const ends=(u.enderecos&&u.enderecos.length)?u.enderecos:(u.endereco&&Object.keys(u.endereco).length?[u.endereco]:[]);
+    const endsHtml=ends.length?ends.map(e=>`
+      <div style="font-size:13px;background:var(--bg);border-radius:8px;padding:10px;margin-bottom:6px;">
+        ${e.apelido?`<strong>${e.apelido}</strong> · `:""}${[e.rua,e.numero,e.bairro,e.cidade,e.estado,e.cep].filter(Boolean).join(", ")}
+        ${e.cpf?`<div style="color:var(--muted);font-size:12px;">CPF: ${e.cpf} · Tel: ${e.telefone||"—"}</div>`:""}
+      </div>`).join(""):'<div style="color:var(--muted);font-size:13px;">Nenhum endereço salvo.</div>';
+
+    // pedidos
+    const pedsHtml=peds.length?peds.map(p=>`
+      <div style="display:flex;justify-content:space-between;font-size:13px;border-bottom:1px solid var(--border);padding:8px 0;">
+        <span style="font-weight:600;color:var(--accent);">#${p.id}</span>
+        <span>${_fmtBR(p.total)}</span>
+        <span style="color:var(--muted);">${(p.status||"—").replace(/_/g," ")}</span>
+        <span style="color:var(--muted);">${_dataBR(p.criado_em)}</span>
+      </div>`).join(""):'<div style="color:var(--muted);font-size:13px;">Nenhum pedido ainda.</div>';
+
+    corpo.innerHTML=`
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+        ✉️ ${u.email} · cadastro em ${_dataBR(u.criado_em)}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+        <div style="background:var(--bg);border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:11px;color:var(--muted);">Cashback</div>
+          <div style="font-size:18px;font-weight:800;color:var(--accent);">${_fmtBR(u.cashback)}</div>
+        </div>
+        <div style="background:var(--bg);border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:11px;color:var(--muted);">Pedidos</div>
+          <div style="font-size:18px;font-weight:800;">${peds.length}</div>
+        </div>
+        <div style="background:var(--bg);border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:11px;color:var(--muted);">Cód. indicação</div>
+          <div style="font-size:14px;font-weight:800;letter-spacing:1px;">${u.ref_codigo||"—"}</div>
+        </div>
+      </div>
+      ${u.indicado_por?`<div style="font-size:13px;background:var(--accent)10;border:1px solid var(--accent)30;border-radius:8px;padding:10px;margin-bottom:16px;">🎁 Indicado por <strong>${u.indicado_por}</strong>${u.indicacao_creditada?' · cashback creditado ✓':' · aguardando 1ª compra'}</div>`:""}
+      <h3 style="font-size:13px;font-weight:800;margin-bottom:8px;">Endereços</h3>
+      ${endsHtml}
+      <h3 style="font-size:13px;font-weight:800;margin:16px 0 4px;">Pedidos</h3>
+      ${pedsHtml}`;
+  }catch(e){ corpo.innerHTML='<p style="color:var(--red);">Erro de conexão.</p>'; }
 }
 
 // ── CUPONS ────────────────────────────────────────────────────────────────────
