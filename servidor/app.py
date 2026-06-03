@@ -153,13 +153,25 @@ def criar_checkout():
         if prod:
             # Preço base do produto
             preco = prod["preco_venda"]
-            # Se a variante (sku_attr) tem preço próprio, usa o da variante
+            # Preço por combinação (SKU capturado do AliExpress)
+            sku_preco = 0
             sku_attr = item.get("sku_attr", "")
             if sku_attr:
                 for s in prod.get("skus", []):
                     if s.get("sku_attr") == sku_attr and s.get("preco_venda", 0) > 0:
-                        preco = s["preco_venda"]
+                        sku_preco = s["preco_venda"]
                         break
+            # Preço por opção definido pelo lojista (tem prioridade)
+            opt_preco = 0
+            sel = item.get("sel_labels", []) or []
+            for v in prod.get("variantes", []):
+                for o in (v.get("opcoes") or []):
+                    if isinstance(o, dict) and o.get("label") in sel and o.get("preco_venda", 0) > 0:
+                        opt_preco = max(opt_preco, o["preco_venda"])
+            if opt_preco > 0:
+                preco = opt_preco
+            elif sku_preco > 0:
+                preco = sku_preco
             item["preco_venda"]     = preco   # força o preço real do servidor
             item["titulo"]          = prod.get("titulo", item.get("titulo"))
             item["link_aliexpress"] = prod.get("link_aliexpress", "")

@@ -409,12 +409,14 @@ let selecao={};         // {nome: label} para exibir
 let selValueIds=[];     // valueId selecionado por propriedade (índice)
 let _vars=[];           // referência às variantes
 let skuAtual=null;      // SKU casado com a seleção atual
+let selOpcoes=[];       // opção selecionada de cada variante (para preço por opção)
 
 function renderVariantes(vars){
   _vars=vars;
   const el=document.getElementById("p-variantes");
   if(!vars.length){el.innerHTML="";return;}
   selValueIds=vars.map(v=>v.opcoes[0]?.valueId ?? null);
+  selOpcoes=vars.map(v=>v.opcoes[0]);
   el.innerHTML=vars.map((v,vi)=>`
     <div class="var-group">
       <div class="var-label">${v.nome}: <span id="sel-${vi}"></span></div>
@@ -435,6 +437,7 @@ function selVar(vi,oi){
   group.querySelectorAll(".var-opt").forEach((el,i)=>el.classList.toggle("on",i===oi));
   selecao[v.nome]= typeof o==="string"?o:(o.label||"");
   selValueIds[vi]= o.valueId ?? null;
+  selOpcoes[vi]= o;
   document.getElementById(`sel-${vi}`).textContent=selecao[v.nome];
   // Troca a foto principal para a imagem da variante selecionada
   if(o && o.img) mostrarFotoVariante(o.img);
@@ -451,17 +454,23 @@ let _precoAtual = 0;
 function casarSku(){
   skuAtual=null;
   if(!PRODUTO) return;
-  _precoAtual = PRODUTO.preco_venda;
-  if(!PRODUTO.skus || !PRODUTO.skus.length){ atualizarPrecoExibido(); return; }
-  const ids = selValueIds.filter(x=>x!=null).map(String);
-  if(ids.length){
-    skuAtual = PRODUTO.skus.find(s=>{
-      const props = (s.prop_ids||"").split(",").map(x=>x.trim());
-      return ids.every(id=>props.includes(id)) || ids.every(id=>(s.sku_attr||"").includes(id));
-    }) || null;
+  // 1) tenta casar a combinação (SKU capturado do AliExpress)
+  if(PRODUTO.skus && PRODUTO.skus.length){
+    const ids = selValueIds.filter(x=>x!=null).map(String);
+    if(ids.length){
+      skuAtual = PRODUTO.skus.find(s=>{
+        const props = (s.prop_ids||"").split(",").map(x=>x.trim());
+        return ids.every(id=>props.includes(id)) || ids.every(id=>(s.sku_attr||"").includes(id));
+      }) || null;
+    }
   }
-  // Preço da variante selecionada (cada capacidade/tamanho pode custar diferente)
-  if(skuAtual && skuAtual.preco_venda > 0) _precoAtual = skuAtual.preco_venda;
+  // 2) preço definido pelo lojista em cada opção (tem prioridade)
+  let optPrice = 0;
+  (selOpcoes||[]).forEach(o=>{ if(o && o.preco_venda > 0) optPrice = Math.max(optPrice, o.preco_venda); });
+  // Prioridade: preço da opção > preço do SKU > preço base
+  if(optPrice > 0)                              _precoAtual = optPrice;
+  else if(skuAtual && skuAtual.preco_venda > 0) _precoAtual = skuAtual.preco_venda;
+  else                                          _precoAtual = PRODUTO.preco_venda;
   atualizarPrecoExibido();
 }
 function atualizarPrecoExibido(){
@@ -558,6 +567,7 @@ function adicionar(){
     quantidade:1,
     variante,
     sku_attr,                          // ← vai para a API de compra do AliExpress
+    sel_labels:(selOpcoes||[]).map(o=> typeof o==="string"?o:((o&&o.label)||"")).filter(Boolean),
     link_aliexpress:PRODUTO.link_aliexpress||""
   });
   localStorage.setItem("carrinho",JSON.stringify(carrinho));badge();abrirCarrinho();

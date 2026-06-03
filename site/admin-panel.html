@@ -1304,24 +1304,32 @@ let _variantesAtual = [];
 let _skusAtual = [];
 function renderVariantesEditor(variantes){
   _variantesAtual = JSON.parse(JSON.stringify(variantes || []));
+  // normaliza opções para objetos (para poderem guardar preço próprio)
+  _variantesAtual.forEach(v=>{ v.opcoes = (v.opcoes||[]).map(o => typeof o==="string" ? {label:o} : o); });
   const box = document.getElementById("variantes-importadas");
   const ed = document.getElementById("variantes-editor");
   if(!_variantesAtual.length){ box.style.display="none"; ed.innerHTML=""; return; }
   box.style.display = "block";
   ed.innerHTML = _variantesAtual.map((v,i)=>`
-    <div style="margin-bottom:12px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <input type="text" value="${(v.nome||'').replace(/"/g,'&quot;')}" data-vi="${i}"
+    <div style="margin-bottom:14px;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--card);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <input type="text" value="${(v.nome||'').replace(/"/g,'&quot;')}"
           onchange="_variantesAtual[${i}].nome=this.value"
           style="flex:1;background:#fff;border:1.5px solid #93c5fd;border-radius:7px;padding:7px 10px;font-size:13px;font-weight:700;color:#111827;"/>
         <span style="font-size:11px;color:var(--muted);white-space:nowrap;">nome da variante</span>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${(v.opcoes||[]).map(o=>{
-          const label = typeof o==="string"?o:(o.label||"");
-          return `<span style="background:#fff;border:1px solid #d1d5db;color:#374151;padding:4px 10px;border-radius:6px;font-size:12px;">${label}</span>`;
-        }).join("")}
-      </div>
+      ${(v.opcoes||[]).map((o,oi)=>`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          ${o.img?`<img src="${o.img}" onerror="this.style.display='none'" style="width:34px;height:34px;border-radius:6px;object-fit:cover;border:1px solid #e5e7eb;flex-shrink:0;"/>`:''}
+          <input type="text" value="${(o.label||'').replace(/"/g,'&quot;')}"
+            onchange="_variantesAtual[${i}].opcoes[${oi}].label=this.value"
+            style="flex:1;min-width:90px;background:#fff;border:1px solid #d1d5db;color:#374151;border-radius:6px;padding:6px 10px;font-size:13px;"/>
+          <span style="font-size:12px;color:var(--muted);">R$</span>
+          <input type="number" step="0.01" value="${o.preco_venda||''}" placeholder="0"
+            onchange="_variantesAtual[${i}].opcoes[${oi}].preco_venda=parseFloat(this.value)||0;verificarMargem()"
+            style="width:92px;background:#fff;border:1px solid #d1d5db;color:#111827;border-radius:6px;padding:6px 10px;font-size:13px;"/>
+        </div>`).join("")}
+      <p style="font-size:11px;color:var(--muted);margin-top:4px;">Defina o preço de cada opção. Deixe <strong>0/vazio</strong> para usar o preço de venda principal.</p>
     </div>`).join("");
 }
 
@@ -1341,11 +1349,13 @@ function renderSkusPrecos(skus){
   _skusAtual = JSON.parse(JSON.stringify(skus || []));
   const box = document.getElementById("skus-precos");
   if(!box) return;
-  if(!_skusAtual.length){ box.style.display="none"; box.innerHTML=""; return; }
+  // Só mostra o editor de combinações quando há 2+ dimensões (ex: Cor + Tamanho).
+  // Para 1 dimensão, o preço já é definido em cada opção acima.
+  if(!_skusAtual.length || (_variantesAtual||[]).length < 2){ box.style.display="none"; box.innerHTML=""; return; }
   box.style.display="block";
   box.innerHTML = `
-    <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:4px;">Preço por variante</div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">Cada combinação pode ter um preço próprio. Deixe 0 para usar o preço de venda principal.</p>
+    <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:4px;">Preço por combinação</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">Para combinações específicas (ex: Cor + Tamanho). Deixe 0 para usar o preço da opção ou o principal.</p>
     ${_skusAtual.map((s,i)=>`
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
         <span style="flex:1;font-size:13px;color:#111827;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;">${_skuLabel(s)}</span>
