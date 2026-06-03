@@ -1319,17 +1319,25 @@ function renderVariantesEditor(variantes){
         <span style="font-size:11px;color:var(--muted);white-space:nowrap;">nome da variante</span>
       </div>
       ${(v.opcoes||[]).map((o,oi)=>`
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          ${o.img?`<img src="${o.img}" onerror="this.style.display='none'" style="width:34px;height:34px;border-radius:6px;object-fit:cover;border:1px solid #e5e7eb;flex-shrink:0;"/>`:''}
-          <input type="text" value="${(o.label||'').replace(/"/g,'&quot;')}"
-            onchange="_variantesAtual[${i}].opcoes[${oi}].label=this.value"
-            style="flex:1;min-width:90px;background:#fff;border:1px solid #d1d5db;color:#374151;border-radius:6px;padding:6px 10px;font-size:13px;"/>
-          <span style="font-size:12px;color:var(--muted);">R$</span>
-          <input type="number" step="0.01" value="${o.preco_venda||''}" placeholder="0"
-            onchange="_variantesAtual[${i}].opcoes[${oi}].preco_venda=parseFloat(this.value)||0;verificarMargem()"
-            style="width:92px;background:#fff;border:1px solid #d1d5db;color:#111827;border-radius:6px;padding:6px 10px;font-size:13px;"/>
+        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px;margin-bottom:8px;background:#fafafa;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${o.img?`<img src="${o.img}" onerror="this.style.display='none'" style="width:34px;height:34px;border-radius:6px;object-fit:cover;border:1px solid #e5e7eb;flex-shrink:0;"/>`:''}
+            <input type="text" value="${(o.label||'').replace(/"/g,'&quot;')}" placeholder="nome da opção"
+              onchange="_variantesAtual[${i}].opcoes[${oi}].label=this.value"
+              style="flex:1;min-width:80px;background:#fff;border:1px solid #d1d5db;color:#374151;border-radius:6px;padding:6px 10px;font-size:13px;"/>
+            <span style="font-size:12px;color:var(--muted);">R$</span>
+            <input type="number" step="0.01" value="${o.preco_venda||''}" placeholder="0"
+              onchange="_variantesAtual[${i}].opcoes[${oi}].preco_venda=parseFloat(this.value)||0;verificarMargem()"
+              style="width:88px;background:#fff;border:1px solid #d1d5db;color:#111827;border-radius:6px;padding:6px 10px;font-size:13px;"/>
+          </div>
+          <input type="text" value="${(o.titulo||'').replace(/"/g,'&quot;')}" placeholder="Título exibido ao escolher esta opção (opcional)"
+            onchange="_variantesAtual[${i}].opcoes[${oi}].titulo=this.value"
+            style="width:100%;box-sizing:border-box;margin-top:6px;background:#fff;border:1px solid #e5e7eb;color:#111827;border-radius:6px;padding:6px 10px;font-size:12px;"/>
+          <input type="text" value="${(o.observacao||'').replace(/"/g,'&quot;')}" placeholder="Observação curta desta opção (opcional)"
+            onchange="_variantesAtual[${i}].opcoes[${oi}].observacao=this.value"
+            style="width:100%;box-sizing:border-box;margin-top:6px;background:#fff;border:1px solid #e5e7eb;color:#6b7280;border-radius:6px;padding:6px 10px;font-size:12px;"/>
         </div>`).join("")}
-      <p style="font-size:11px;color:var(--muted);margin-top:4px;">Defina o preço de cada opção. Deixe <strong>0/vazio</strong> para usar o preço de venda principal.</p>
+      <p style="font-size:11px;color:var(--muted);margin-top:4px;">Cada opção pode ter <strong>preço, título e observação próprios</strong> — como vários produtos em um só. Deixe vazio para herdar o principal.</p>
     </div>`).join("");
 }
 

@@ -46,14 +46,21 @@
     .topbar{background:var(--ink);color:#fff;font-size:13px;text-align:center;padding:9px 16px;font-weight:500;}
 
     /* HEADER */
-    header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--line);}
-    .header-row{display:flex;align-items:center;gap:24px;height:68px;}
-    .logo{font-size:22px;font-weight:800;color:var(--ink);letter-spacing:-.5px;flex-shrink:0;}
-    .logo span{color:var(--primary);}
-    .search{flex:1;max-width:560px;position:relative;}
-    .search input{width:100%;height:44px;border:1.5px solid var(--line);border-radius:10px;padding:0 16px 0 44px;font-size:14px;font-family:inherit;outline:none;transition:border-color .15s;background:var(--bg-soft);}
-    .search input:focus{border-color:var(--primary);background:#fff;}
-    .search .ic{position:absolute;left:14px;top:12px;color:var(--muted);}
+    header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(15,23,42,.02);}
+    .util-bar{background:var(--bg-soft);border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted);}
+    .util-row{display:flex;align-items:center;justify-content:space-between;height:38px;}
+    .util-links{display:flex;gap:20px;}
+    .util-links a{color:var(--muted);font-weight:500;transition:color .15s;}
+    .util-links a:hover{color:var(--primary);}
+    .header-row{display:flex;align-items:center;gap:28px;height:84px;}
+    .logo{flex-shrink:0;display:flex;align-items:center;}
+    .logo img{height:64px;width:auto;display:block;}
+    .search{flex:1;max-width:640px;position:relative;display:flex;align-items:center;}
+    .search input{width:100%;height:50px;border:2px solid var(--primary);border-radius:12px;padding:0 110px 0 46px;font-size:15px;font-family:inherit;outline:none;transition:box-shadow .15s;background:#fff;}
+    .search input:focus{box-shadow:0 0 0 3px #2563eb22;}
+    .search>.ic{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--primary);pointer-events:none;}
+    .search-btn{position:absolute;right:5px;top:5px;bottom:5px;border:none;background:var(--primary);color:#fff;font-weight:700;font-size:14px;padding:0 22px;border-radius:9px;cursor:pointer;transition:background .15s;}
+    .search-btn:hover{background:var(--primary-dark);}
     .header-actions{display:flex;align-items:center;gap:8px;margin-left:auto;}
     .icon-btn{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:10px;color:var(--body);font-size:14px;font-weight:500;background:none;border:none;cursor:pointer;transition:background .15s;}
     .icon-btn:hover{background:var(--bg-soft);}
@@ -198,11 +205,18 @@
       .selos-row{grid-template-columns:repeat(2,1fr);}.selo:nth-child(2){border-right:none;}
       .grid{grid-template-columns:repeat(2,1fr);}
       .steps{grid-template-columns:repeat(2,1fr);}.reviews{grid-template-columns:1fr;}
-      .footer-grid{grid-template-columns:1fr;}.search{display:none;}
+      .footer-grid{grid-template-columns:1fr;}
     }
     @media(max-width:640px){
       .hide-mobile{display:none;}
-      .header-row{height:58px;gap:12px;}
+      .util-msg{display:none;}
+      .util-row{justify-content:center;}
+      .header-row{height:auto;flex-wrap:wrap;gap:10px;padding-top:12px;padding-bottom:12px;}
+      .logo img{height:48px;}
+      .logo{order:1;}
+      .header-actions{order:2;margin-left:auto;}
+      .search{order:3;flex-basis:100%;max-width:100%;}
+      .search input{height:46px;padding-right:96px;}
       .icon-btn{padding:8px;}
       .selos-row{grid-template-columns:1fr 1fr;}
       .selo{padding:14px 12px;font-size:12px;}
@@ -221,12 +235,25 @@
 <div class="topbar" id="topbar"></div>
 
 <header>
-  <div class="container header-row">
-    <a href="/" class="logo" id="logo"><img src="/logo.png" alt="TechDrop" style="height:52px;width:auto;display:block;"/></a>
-    <div class="search">
-      <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="text" placeholder="Buscar produtos..." id="busca"/>
+  <!-- barra utilitária -->
+  <div class="util-bar">
+    <div class="container util-row">
+      <span class="util-msg">🚚 Enviamos para todo o Brasil · 🔒 Pagamento 100% seguro</span>
+      <div class="util-links">
+        <a href="/minha-conta">Minha conta</a>
+        <a href="/minha-conta">Meus pedidos</a>
+        <a href="/rastrear">Rastrear pedido</a>
+      </div>
     </div>
+  </div>
+  <!-- header principal -->
+  <div class="container header-row">
+    <a href="/" class="logo" id="logo"><img src="/logo.png" alt="TechDrop"/></a>
+    <form class="search" onsubmit="buscar(event)" role="search">
+      <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" placeholder="O que você procura hoje?" id="busca" autocomplete="off" oninput="buscaInput()"/>
+      <button type="submit" class="search-btn">Buscar</button>
+    </form>
     <div class="header-actions">
       <a href="/minha-conta" class="icon-btn">
         <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
@@ -242,13 +269,13 @@
 </header>
 
 <nav class="catnav">
-  <div class="container catnav-row">
-    <a href="#" class="on">Todos</a>
-    <a href="#produtos">Fones & Áudio</a>
-    <a href="#produtos">Carregadores</a>
-    <a href="#produtos">Powerbanks</a>
-    <a href="#produtos">Acessórios</a>
-    <a href="#produtos">Novidades</a>
+  <div class="container catnav-row" id="catnav-row">
+    <a href="javascript:void(0)" class="on" data-cat="todos"     onclick="filtrarCat(this,'todos')">Todos</a>
+    <a href="javascript:void(0)" data-cat="fones"        onclick="filtrarCat(this,'fones')">Fones &amp; Áudio</a>
+    <a href="javascript:void(0)" data-cat="carregadores" onclick="filtrarCat(this,'carregadores')">Carregadores</a>
+    <a href="javascript:void(0)" data-cat="powerbanks"   onclick="filtrarCat(this,'powerbanks')">Powerbanks</a>
+    <a href="javascript:void(0)" data-cat="acessorios"   onclick="filtrarCat(this,'acessorios')">Acessórios</a>
+    <a href="javascript:void(0)" data-cat="gamer"        onclick="filtrarCat(this,'gamer')">Setup Gamer</a>
   </div>
 </nav>
 
@@ -501,7 +528,8 @@ function aplicarConfig(c){
   }
 }
 
-// ── PRODUTOS ────────────────────────────────────────────────────────────────
+// ── PRODUTOS + BUSCA + CATEGORIAS ───────────────────────────────────────────
+let _PRODUTOS=[], _CATFILTRO="todos", _BUSCA="";
 async function carregarProdutos(){
   try{
     const d = await (await fetch("/api/produtos")).json();
@@ -509,14 +537,68 @@ async function carregarProdutos(){
       document.getElementById("grid").innerHTML='<p style="color:var(--muted)">Nenhum produto disponível.</p>';
       return;
     }
-    // Múltiplos destaques (carrossel). Se nenhum marcado, usa o primeiro.
-    const destaques = d.produtos.filter(p=>p.destaque);
-    const lista = destaques.length ? destaques : [d.produtos[0]];
-    renderDestaque(lista);
-    const idsDest = new Set(lista.map(p=>p.id));
-    renderGrade(d.produtos.filter(p=>!idsDest.has(p.id)));
+    _PRODUTOS = d.produtos;
+    aplicarFiltros();
   }catch(e){}
 }
+
+function _matchBusca(p,q){
+  if(!q) return true;
+  const hay=((p.titulo||"")+" "+(p.descricao||"")+" "+(p.categoria||"")+" "+(p.badge||"")).toLowerCase();
+  return q.split(/\s+/).every(t=>hay.includes(t));
+}
+
+function aplicarFiltros(){
+  const filtrando = !!_BUSCA || _CATFILTRO!=="todos";
+  const destWrap = document.getElementById("destaque-wrap");
+  const tituloSec = document.getElementById("titulo-produtos");
+  if(filtrando){
+    if(destWrap) destWrap.style.display="none";
+    if(_destTimer) clearInterval(_destTimer);
+    let lista=_PRODUTOS.slice();
+    if(_CATFILTRO!=="todos") lista=lista.filter(p=>(p.categoria||"")===_CATFILTRO);
+    if(_BUSCA)               lista=lista.filter(p=>_matchBusca(p,_BUSCA));
+    if(tituloSec){
+      if(_BUSCA) tituloSec.textContent=`Resultados para "${_BUSCA}" (${lista.length})`;
+      else{
+        const lbl=document.querySelector(`#catnav-row a[data-cat="${_CATFILTRO}"]`);
+        tituloSec.textContent=(lbl?lbl.textContent:"Produtos")+` (${lista.length})`;
+      }
+    }
+    if(!lista.length){
+      document.getElementById("grid").innerHTML='<p style="grid-column:1/-1;color:var(--muted);text-align:center;padding:48px 0;">Nenhum produto encontrado. Tente outra busca. 🔎</p>';
+    }else renderGrade(lista);
+  }else{
+    if(destWrap) destWrap.style.display="block";
+    const destaques=_PRODUTOS.filter(p=>p.destaque);
+    const lst=destaques.length?destaques:[_PRODUTOS[0]];
+    renderDestaque(lst);
+    const ids=new Set(lst.map(p=>p.id));
+    if(tituloSec) tituloSec.textContent=(CONFIG&&CONFIG.titulo_produtos)||"Mais vendidos";
+    renderGrade(_PRODUTOS.filter(p=>!ids.has(p.id)));
+  }
+}
+
+let _buscaT=null;
+function buscaInput(){
+  clearTimeout(_buscaT);
+  _buscaT=setTimeout(()=>{ _BUSCA=(document.getElementById("busca").value||"").trim().toLowerCase(); aplicarFiltros(); },250);
+}
+function buscar(e){
+  if(e) e.preventDefault();
+  _BUSCA=(document.getElementById("busca").value||"").trim().toLowerCase();
+  aplicarFiltros();
+  document.getElementById("produtos").scrollIntoView({behavior:"smooth"});
+}
+function filtrarCat(el,cat){
+  _CATFILTRO=cat;
+  _BUSCA=""; const b=document.getElementById("busca"); if(b) b.value="";
+  document.querySelectorAll("#catnav-row a").forEach(a=>a.classList.remove("on"));
+  if(el) el.classList.add("on");
+  aplicarFiltros();
+  document.getElementById("produtos").scrollIntoView({behavior:"smooth"});
+}
+
 function estrelas(n){const c=Math.round(n||5);return "★".repeat(c)+"☆".repeat(5-c);}
 
 let _destaques=[], _destIdx=0, _destTimer=null;
@@ -750,6 +832,12 @@ function fecharCarrinho(){document.getElementById("overlay").classList.remove("s
 (function(){
   const ref=new URLSearchParams(location.search).get("ref");
   if(ref){ localStorage.setItem("ref_indicador", ref.trim().toUpperCase()); }
+})();
+
+// ── BUSCA via URL (?q=) vinda de outras páginas ─────────────────────────────
+(function(){
+  const q=new URLSearchParams(location.search).get("q");
+  if(q){ const b=document.getElementById("busca"); if(b) b.value=q; _BUSCA=q.trim().toLowerCase(); }
 })();
 
 // ── INIT ────────────────────────────────────────────────────────────────────
