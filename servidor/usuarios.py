@@ -25,6 +25,38 @@ def _hash(senha: str) -> str:
     return hashlib.pbkdf2_hmac("sha256", senha.encode(), USER_SECRET.encode(), 100_000).hex()
 
 
+def _canon_email(email: str) -> str:
+    """
+    Normaliza o e-mail para impedir contas duplicadas com o mesmo endereço real:
+    - minúsculas e sem espaços
+    - remove o sufixo +alias (ex: nome+promo@x.com -> nome@x.com) — vale para todos
+    - Gmail/Googlemail ignoram pontos no nome (n.o.m.e@gmail.com == nome@gmail.com)
+    """
+    email = (email or "").strip().lower()
+    if "@" not in email:
+        return email
+    local, _, dominio = email.partition("@")
+    local = local.split("+", 1)[0]
+    if dominio in ("gmail.com", "googlemail.com"):
+        local = local.replace(".", "")
+        dominio = "gmail.com"
+    return f"{local}@{dominio}"
+
+
+def _buscar_usuario(email: str):
+    """Acha a conta pela chave canônica e, se não houver, pela chave antiga (raw)."""
+    canon = _canon_email(email)
+    u = db.get(COLECAO, canon)
+    if u:
+        return u, canon
+    raw = (email or "").strip().lower()
+    if raw and raw != canon:
+        u = db.get(COLECAO, raw)
+        if u:
+            return u, raw
+    return None, canon
+
+
 def _criar_token(email: str) -> str:
     exp = (datetime.utcnow() + timedelta(days=TOKEN_DIAS)).isoformat()
     payload = base64.urlsafe_b64encode(json.dumps({"email": email, "exp": exp}).encode()).decode()
@@ -46,15 +78,21 @@ def verificar_token(token: str) -> dict | None:
 
 
 def cadastrar(nome: str, email: str, senha: str) -> dict:
-    email = email.lower().strip()
-    if db.get(COLECAO, email):
-        return {"ok": False, "erro": "Este e-mail já está cadastrado."}
+    email_digitado = (email or "").strip().lower()
+    email = _canon_email(email)
+    if "@" not in email or "." not in email.split("@")[-1]:
+        return {"ok": False, "erro": "Informe um e-mail válido."}
+    # bloqueia conta duplicada: mesmo e-mail OU variação do mesmo endereço real
+    # (canônica + forma digitada, p/ pegar também contas antigas)
+    if db.get(COLECAO, email) or db.get(COLECAO, email_digitado):
+        return {"ok": False, "erro": "Este e-mail já possui conta. Faça login."}
     if len(senha) < 6:
         return {"ok": False, "erro": "A senha deve ter pelo menos 6 caracteres."}
     usuario = {
         "id":        str(uuid.uuid4())[:8],
         "nome":      nome.strip(),
-        "email":     email,
+        "email":     email,                 # forma canônica (chave)
+        "email_digitado": email_digitado,   # como o cliente escreveu
         "senha_hash": _hash(senha),
         "criado_em": datetime.now().isoformat(),
         "endereco":  {},
@@ -64,15 +102,14 @@ def cadastrar(nome: str, email: str, senha: str) -> dict:
 
 
 def login(email: str, senha: str) -> dict:
-    email = email.lower().strip()
-    usuario = db.get(COLECAO, email)
+    usuario, chave = _buscar_usuario(email)
     if not usuario or not hmac.compare_digest(usuario["senha_hash"], _hash(senha)):
         return {"ok": False, "erro": "E-mail ou senha incorretos."}
-    return {"ok": True, "token": _criar_token(email), "nome": usuario["nome"]}
+    return {"ok": True, "token": _criar_token(chave), "nome": usuario["nome"]}
 
 
 def obter(email: str) -> dict | None:
-    u = db.get(COLECAO, email.lower().strip())
+    u, _ = _buscar_usuario(email)
     if u:
         u = {**u}
         u.pop("senha_hash", None)  # nunca expõe o hash
