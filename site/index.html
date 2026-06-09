@@ -229,6 +229,149 @@
     }
     @media(max-width:520px){.grid{grid-template-columns:repeat(2,1fr);gap:12px;}}
   </style>
+
+  <!-- ════════════ REDESIGN v2 — folha de override (vitrine) ════════════ -->
+  <style id="redesign-v2">
+    :root{
+      --accent:#7c3aed; --accent2:#06b6d4;
+      --ink:#0b1220; --body:#3b4658; --muted:#7a869a; --line:#e8edf4;
+      --bg:#ffffff; --bg-soft:#f4f7fb; --bg-soft2:#eaf0f9;
+      --green:#0a9e6e;
+      --radius:18px; --radius-sm:12px;
+      --shadow-sm:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.04);
+      --shadow:0 12px 32px -14px rgba(16,24,40,.20);
+      --shadow-lg:0 30px 70px -24px rgba(16,24,40,.32);
+      --grad:linear-gradient(135deg,var(--primary) 0%,#4f46e5 55%,var(--accent) 100%);
+    }
+    body{background:var(--bg);color:var(--body);font-size:15.5px;}
+    .container{max-width:1180px;}
+    ::selection{background:color-mix(in srgb,var(--primary) 22%,transparent);}
+
+    /* TOPBAR */
+    .topbar{background:linear-gradient(90deg,#0b1220,#15233f 50%,#0b1220);letter-spacing:.2px;border-bottom:1px solid rgba(255,255,255,.06);}
+
+    /* HEADER glassy */
+    header{background:rgba(255,255,255,.82);backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);border-bottom:1px solid var(--line);}
+    .util-bar{background:transparent;}
+    .header-row{height:88px;}
+    .logo img{height:60px;filter:drop-shadow(0 2px 6px rgba(16,24,40,.12));transition:transform .2s;}
+    .logo:hover img{transform:scale(1.03);}
+    .search input{height:52px;border:1.5px solid var(--line);border-radius:14px;background:var(--bg-soft);transition:border-color .15s,box-shadow .15s,background .15s;}
+    .search input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 16%,transparent);}
+    .search>.ic{color:var(--muted);}
+    .search-btn{background:var(--grad);border-radius:11px;box-shadow:0 6px 16px -6px color-mix(in srgb,var(--primary) 70%,transparent);transition:transform .15s,box-shadow .15s,filter .15s;}
+    .search-btn:hover{filter:brightness(1.05);transform:translateY(-1px);}
+    .icon-btn{border-radius:12px;transition:background .15s,color .15s;}
+    .icon-btn:hover{background:var(--bg-soft2);color:var(--primary);}
+    .cart-count{background:var(--accent);box-shadow:0 2px 8px -2px var(--accent);}
+
+    /* NAV CATEGORIAS — pills */
+    .catnav{background:#fff;}
+    .catnav-row{height:58px;gap:10px;}
+    .catnav a{padding:8px 16px;border-radius:50px;border:1px solid transparent;font-weight:600;color:var(--body);transition:all .15s;}
+    .catnav a:hover{color:var(--primary);background:var(--bg-soft2);border-bottom-color:transparent;}
+    .catnav a.on{color:#fff;background:var(--grad);border-bottom-color:transparent;box-shadow:0 8px 18px -8px color-mix(in srgb,var(--primary) 70%,transparent);}
+
+    /* HERO */
+    .hero{position:relative;overflow:hidden;background:radial-gradient(1200px 500px at 78% -8%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 60%),radial-gradient(900px 480px at 8% 8%,color-mix(in srgb,var(--primary) 14%,transparent),transparent 55%),linear-gradient(180deg,var(--bg-soft),#fff 78%);padding:72px 0 64px;}
+    .hero-eyebrow{background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-sm);color:var(--primary);font-weight:700;}
+    .hero h1{font-size:clamp(34px,4.6vw,54px);letter-spacing:-1.4px;background:linear-gradient(180deg,#0b1220,#26324a);-webkit-background-clip:text;background-clip:text;color:transparent;}
+    .hero p{font-size:18px;line-height:1.6;}
+    .hero-img{border-radius:24px;box-shadow:var(--shadow-lg);aspect-ratio:4/3.05;transform:rotate(1.2deg);transition:transform .35s;}
+    .hero-img:hover{transform:rotate(0deg) scale(1.01);}
+    .hero-glow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(420px 420px at 70% 30%,color-mix(in srgb,var(--accent2) 22%,transparent),transparent 70%);opacity:.5;}
+    .hero-trust{display:flex;align-items:center;gap:18px;margin-top:26px;flex-wrap:wrap;}
+    .hero-trust .stars{color:var(--amber,#f59e0b);font-size:17px;letter-spacing:1px;}
+    .hero-trust b{color:var(--ink);}
+    .hero-trust .ht-item{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);}
+    .hero-trust .ht-sep{width:1px;height:22px;background:var(--line);}
+    .hero-avatars{display:flex;}
+    .hero-avatars span{width:30px;height:30px;border-radius:50%;border:2px solid #fff;margin-left:-9px;background:var(--grad);display:inline-block;box-shadow:var(--shadow-sm);}
+    .hero-avatars span:first-child{margin-left:0;}
+
+    /* BOTÕES */
+    .btn{height:52px;border-radius:13px;font-weight:700;transition:transform .15s,box-shadow .15s,filter .15s;}
+    .btn-primary{background:var(--grad);box-shadow:0 14px 30px -12px color-mix(in srgb,var(--primary) 75%,transparent);}
+    .btn-primary:hover{transform:translateY(-2px);filter:brightness(1.05);box-shadow:0 18px 38px -12px color-mix(in srgb,var(--primary) 80%,transparent);}
+    .btn-ghost{background:#fff;border:1.5px solid var(--line);box-shadow:var(--shadow-sm);}
+    .btn-ghost:hover{border-color:var(--primary);color:var(--primary);transform:translateY(-2px);}
+
+    /* SELOS — cards */
+    .selos{border:none;background:transparent;margin-top:-28px;position:relative;z-index:2;}
+    .selos-row{gap:16px;border:none;background:transparent;}
+    .selo{flex-direction:row;background:#fff;border:1px solid var(--line);border-right:1px solid var(--line);border-radius:16px;padding:18px 18px;box-shadow:var(--shadow-sm);font-weight:600;color:var(--ink);transition:transform .18s,box-shadow .18s;}
+    .selo:hover{transform:translateY(-3px);box-shadow:var(--shadow);}
+    .selo .ic{width:38px;height:38px;padding:9px;border-radius:11px;background:var(--bg-soft2);color:var(--primary);box-sizing:border-box;}
+
+    /* SEÇÕES */
+    section{padding:60px 0;}
+    .sec-head h2{font-size:30px;letter-spacing:-.8px;position:relative;padding-left:16px;}
+    .sec-head h2::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:5px;border-radius:5px;background:var(--grad);}
+    .sec-head a{font-weight:700;}
+
+    /* DESTAQUE */
+    .carousel-viewport{border-radius:22px;box-shadow:var(--shadow);}
+    .destaque{border:1px solid var(--line);border-radius:22px;}
+    .destaque-media{background:radial-gradient(420px 300px at 50% 30%,color-mix(in srgb,var(--primary) 12%,transparent),var(--bg-soft));}
+    .destaque-media img{filter:drop-shadow(0 24px 40px rgba(16,24,40,.18));}
+    .pill{background:var(--grad);color:#fff;letter-spacing:.6px;}
+    .destaque-body h3{font-size:28px;letter-spacing:-.6px;}
+    .price-now{font-size:38px;letter-spacing:-1px;}
+    .cnav{box-shadow:var(--shadow-sm);}
+    .cnav:hover{background:var(--grad);color:#fff;border-color:transparent;}
+    .carousel-dots span.on{background:var(--grad);}
+
+    /* GRID / CARDS */
+    .grid{gap:22px;}
+    .card{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);transition:box-shadow .2s,transform .2s,border-color .2s;}
+    .card:hover{box-shadow:var(--shadow-lg);transform:translateY(-6px);border-color:color-mix(in srgb,var(--primary) 30%,var(--line));}
+    .card-media{background:linear-gradient(180deg,var(--bg-soft),var(--bg-soft2));}
+    .card:hover .card-media img{transform:scale(1.06);}
+    .tag{background:rgba(11,18,32,.82);backdrop-filter:blur(4px);border-radius:8px;font-weight:700;letter-spacing:.3px;}
+    .card-disc{position:absolute;top:12px;right:12px;background:var(--grad);color:#fff;font-size:12px;font-weight:800;padding:5px 9px;border-radius:8px;box-shadow:0 6px 14px -6px color-mix(in srgb,var(--primary) 70%,transparent);}
+    .card-fav{position:absolute;bottom:12px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.92);backdrop-filter:blur(4px);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);box-shadow:var(--shadow-sm);opacity:0;transform:translateY(6px);transition:.18s;cursor:pointer;}
+    .card:hover .card-fav{opacity:1;transform:translateY(0);}
+    .card-fav:hover{color:#e11d48;border-color:#fecdd3;}
+    .card-body h3{font-size:14.5px;}
+    .card-price .now{font-size:23px;letter-spacing:-.5px;}
+    .btn-add{height:44px;border-radius:11px;background:var(--bg-soft2);color:var(--primary);font-weight:800;transition:all .16s;}
+    .btn-add:hover{background:var(--grad);color:#fff;box-shadow:0 12px 24px -10px color-mix(in srgb,var(--primary) 75%,transparent);}
+
+    /* COMO FUNCIONA — timeline */
+    #como-funciona{background:linear-gradient(180deg,var(--bg-soft),#fff);}
+    .steps{position:relative;}
+    .steps::before{content:"";position:absolute;top:22px;left:12%;right:12%;height:2px;background:linear-gradient(90deg,transparent,var(--line) 12%,var(--line) 88%,transparent);z-index:0;}
+    .step{position:relative;z-index:1;}
+    .step-num{width:48px;height:48px;border-radius:14px;background:var(--grad);color:#fff;box-shadow:0 12px 24px -10px color-mix(in srgb,var(--primary) 70%,transparent);}
+
+    /* REVIEWS */
+    .review{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);position:relative;transition:transform .18s,box-shadow .18s;}
+    .review:hover{transform:translateY(-4px);box-shadow:var(--shadow);}
+    .review::after{content:"\201D";position:absolute;top:8px;right:20px;font-size:64px;line-height:1;color:color-mix(in srgb,var(--primary) 16%,transparent);font-family:Georgia,serif;}
+    .avatar{background:var(--grad);}
+    .review .stars{color:var(--amber,#f59e0b);}
+
+    /* FOOTER */
+    footer{background:linear-gradient(180deg,#0b1220,#0a0f1c);margin-top:40px;}
+    .pay span{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);}
+
+    /* CART DRAWER + WPP */
+    .drawer{border-top-left-radius:20px;border-bottom-left-radius:20px;}
+    .ci-info .ci-price{color:var(--primary);}
+    .wpp{box-shadow:0 10px 30px -8px rgba(37,211,102,.5);transition:transform .2s;}
+    .wpp:hover{transform:scale(1.08);}
+
+    @media(max-width:900px){
+      .selos{margin-top:0;}
+      .steps::before{display:none;}
+      .hero{padding:48px 0 40px;}
+    }
+    @media(max-width:640px){
+      .catnav-row{height:52px;}
+      .sec-head h2{font-size:23px;}
+      .hero-trust{gap:12px;}
+    }
+  </style>
 </head>
 <body>
 
@@ -289,6 +432,7 @@
 
 <!-- HERO -->
 <div class="hero">
+  <div class="hero-glow"></div>
   <div class="container hero-grid">
     <div>
       <div class="hero-eyebrow" id="hero-eyebrow">
@@ -300,6 +444,14 @@
       <div class="hero-btns">
         <a href="#produtos" class="btn btn-primary" id="hero-cta">Ver produtos</a>
         <a href="#como-funciona" class="btn btn-ghost">Como funciona</a>
+      </div>
+      <div class="hero-trust">
+        <div class="ht-item">
+          <span class="hero-avatars"><span></span><span></span><span></span><span></span></span>
+          <span><b>+10 mil</b> clientes felizes</span>
+        </div>
+        <span class="ht-sep"></span>
+        <div class="ht-item"><span class="stars">★★★★★</span> <span><b>4.8</b>/5 de avaliação</span></div>
       </div>
     </div>
     <div class="hero-img"><img id="hero-img" src="" alt=""/></div>
@@ -615,7 +767,7 @@ function renderDestaque(produtos){
         <span class="pill">Em destaque</span>
         <h3>${p.titulo}</h3>
         <div class="rating"><span class="stars">${estrelas(p.avaliacao)}</span><span>${p.avaliacao||4.8} · ${p.vendas||0} ${p.tem_reviews_reais?'avaliações':'vendidos'}</span></div>
-        <div class="price-row"><span class="price-now">${fmt(p.preco_venda)}</span><span class="price-old">${fmt(pde)}</span></div>
+        <div class="price-row"><span class="price-now">${fmt(p.preco_venda)}</span><span class="price-old">${fmt(pde)}</span>${pde>p.preco_venda?`<span style="background:#dcfce7;color:#0a7d4f;font-weight:800;font-size:13px;padding:4px 10px;border-radius:50px;">economize ${Math.round((1-p.preco_venda/pde)*100)}%</span>`:''}</div>
         <div class="price-parc">em até 3x de ${fmt(p.preco_venda/3)} sem juros</div>
         <button class="btn btn-primary" onclick="addCarrinho('${p.id}','${(p.titulo||'').replace(/'/g,'')}','${p.imagem||''}',${p.preco_venda})">Adicionar ao carrinho</button>
         <a href="/produto?id=${p.id}" style="margin-top:14px;font-size:14px;font-weight:600;color:var(--primary);">Ver detalhes do produto →</a>
@@ -638,11 +790,14 @@ function _iniciarAutoDest(){clearInterval(_destTimer);_destTimer=setInterval(()=
 function renderGrade(produtos){
   document.getElementById("grid").innerHTML = produtos.map(p=>{
     const pde=p.preco_de||Math.round(p.preco_venda*1.6);
+    const disc=pde>p.preco_venda?Math.round((1-p.preco_venda/pde)*100):0;
     return `
     <div class="card" onclick="irProduto('${p.id}')">
       <div class="card-media">
         <img src="${p.imagem||''}" alt="${p.titulo}" loading="lazy" onerror="this.src='https://placehold.co/400?text=Produto'"/>
         ${p.badge?`<span class="tag">${p.badge}</span>`:''}
+        ${disc>0?`<span class="card-disc">-${disc}%</span>`:''}
+        <span class="card-fav" onclick="event.stopPropagation();this.style.color='#e11d48'" title="Favoritar"><svg class="ic" style="width:18px;height:18px" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></span>
       </div>
       <div class="card-body">
         <h3>${p.titulo}</h3>

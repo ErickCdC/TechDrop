@@ -187,6 +187,86 @@
       .price-now{font-size:24px;}
     }
   </style>
+
+  <!-- ════════════ REDESIGN v2 — folha de override (produto) ════════════ -->
+  <style id="redesign-v2">
+    :root{
+      --accent:#7c3aed; --accent2:#06b6d4;
+      --ink:#0b1220; --body:#3b4658; --muted:#7a869a; --line:#e8edf4;
+      --bg-soft:#f4f7fb; --bg-soft2:#eaf0f9; --green:#0a9e6e;
+      --shadow-sm:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.04);
+      --shadow:0 12px 32px -14px rgba(16,24,40,.20);
+      --shadow-lg:0 30px 70px -24px rgba(16,24,40,.32);
+      --grad:linear-gradient(135deg,var(--primary) 0%,#4f46e5 55%,var(--accent) 100%);
+    }
+    body{background:var(--bg);font-size:15.5px;}
+    .container{max-width:1140px;}
+
+    /* HEADER glassy */
+    header{background:rgba(255,255,255,.82);backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);border-bottom:1px solid var(--line);}
+    .util-bar{background:transparent;}
+    .logo img{filter:drop-shadow(0 2px 6px rgba(16,24,40,.12));}
+    .search input{border:1.5px solid var(--line);background:var(--bg-soft);border-radius:14px;height:50px;}
+    .search input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 16%,transparent);}
+    .search>.ic{color:var(--muted);}
+    .search-btn{background:var(--grad);border-radius:11px;box-shadow:0 6px 16px -6px color-mix(in srgb,var(--primary) 70%,transparent);}
+    .cart-count{background:var(--accent);}
+
+    /* BREADCRUMB */
+    .breadcrumb{padding:22px 0 6px;}
+    .breadcrumb a{font-weight:600;}
+
+    /* GALERIA */
+    .gallery-main{border:1px solid var(--line);border-radius:22px;background:linear-gradient(180deg,var(--bg-soft),var(--bg-soft2));box-shadow:var(--shadow);}
+    .gallery-slide img{filter:drop-shadow(0 24px 40px rgba(16,24,40,.16));}
+    .gallery-nav{box-shadow:var(--shadow-sm);}
+    .gallery-nav:hover{background:var(--grad);color:#fff;border-color:transparent;}
+    .gallery-dots span.on{background:var(--grad);}
+    .thumbs img{border-radius:12px;width:74px;height:74px;}
+    .thumbs img.on{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%,transparent);}
+
+    /* INFO */
+    .prod-info h1{font-size:30px;letter-spacing:-.8px;}
+    .stars{color:var(--amber);}
+    .price-box{background:linear-gradient(180deg,#fff,var(--bg-soft));border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-sm);padding:24px;position:relative;overflow:hidden;}
+    .price-box::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--grad);}
+    .price-now{font-size:40px;letter-spacing:-1.2px;}
+    .price-off{background:#dcfce7;color:#0a7d4f;font-weight:800;border-radius:50px;padding:4px 12px;}
+
+    /* VARIANTES — pills */
+    .var-opt{border-radius:11px;padding:10px 15px;transition:all .15s;}
+    .var-opt:hover{border-color:var(--primary);transform:translateY(-1px);}
+    .var-opt.on{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,#fff);color:var(--primary);box-shadow:0 6px 14px -8px color-mix(in srgb,var(--primary) 60%,transparent);}
+
+    /* AÇÕES */
+    .btn{height:54px;border-radius:13px;font-weight:800;transition:transform .15s,box-shadow .15s,filter .15s;}
+    .btn-primary{background:var(--grad);box-shadow:0 14px 30px -12px color-mix(in srgb,var(--primary) 75%,transparent);}
+    .btn-primary:hover{transform:translateY(-2px);filter:brightness(1.05);}
+    .btn-icon{border:1.5px solid var(--line);box-shadow:var(--shadow-sm);}
+    .btn-icon:hover{border-color:var(--primary);color:var(--primary);}
+
+    /* TRUST */
+    .trust{border-top:1px solid var(--line);}
+    .trust-item{gap:12px;}
+    .trust-item .ic{width:34px;height:34px;padding:8px;border-radius:10px;background:var(--bg-soft2);color:var(--primary);box-sizing:border-box;}
+
+    /* TABS */
+    .tab-head.on{border-bottom-color:var(--primary);}
+    .tab-head.on::after{display:none;}
+
+    /* REVIEWS */
+    .rev{border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);transition:transform .15s,box-shadow .15s;}
+    .rev:hover{transform:translateY(-3px);box-shadow:var(--shadow);}
+    .avatar{background:var(--grad);}
+    .btn-avaliar{background:var(--bg-soft2);font-weight:800;border-radius:11px;}
+    .btn-avaliar:hover{background:var(--grad);color:#fff;}
+    .rev-score .num{background:linear-gradient(180deg,#0b1220,#26324a);-webkit-background-clip:text;background-clip:text;color:transparent;}
+
+    @media(max-width:600px){
+      .prod-info h1{font-size:23px;}
+      .price-now{font-size:30px;}
+    }
+  </style>
 </head>
 <body>
 

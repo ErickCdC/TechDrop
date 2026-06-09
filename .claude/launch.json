@@ -10,7 +10,7 @@
     {
       "name": "loja-flask",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-c", "import wsgi; wsgi.app.run(host='127.0.0.1', port=8000)"],
+      "runtimeArgs": ["-X", "utf8", "-c", "import wsgi; wsgi.app.run(host='127.0.0.1', port=8000)"],
       "port": 8000
     }
   ]
