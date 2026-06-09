@@ -83,6 +83,48 @@
     .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px;}
     @keyframes spin{to{transform:rotate(360deg)}}
   </style>
+
+  <!-- ════════════ REDESIGN v2 — folha de override (checkout) ════════════ -->
+  <style id="redesign-v2">
+    :root{
+      --text:#0b1220; --muted:#7a869a; --border:#e8edf4; --bg:#f4f7fb;
+      --grad:linear-gradient(135deg,var(--accent) 0%,#4f46e5 55%,#7c3aed 100%);
+      --shadow-sm:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.04);
+      --shadow:0 12px 32px -14px rgba(16,24,40,.18);
+    }
+    body{background:radial-gradient(900px 420px at 100% -5%,color-mix(in srgb,var(--accent) 9%,transparent),transparent 60%),var(--bg);color:var(--text);font-size:15.5px;}
+    .wrap{max-width:1040px;}
+
+    /* HEADER glassy */
+    .header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.82);backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);border-bottom:1px solid var(--border);}
+    .header .logo img{filter:drop-shadow(0 2px 6px rgba(16,24,40,.12));}
+    .breadcrumb span{color:var(--accent);}
+
+    /* CARDS */
+    .form-box,.resumo{border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-sm);}
+    .form-box{padding:30px;}
+    .form-box h2,.resumo h2{letter-spacing:-.3px;}
+
+    /* INPUTS */
+    .field input,.field select{border:1.5px solid var(--border);border-radius:10px;background:#fbfcfe;transition:border-color .15s,box-shadow .15s,background .15s;}
+    .field input:focus,.field select:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 15%,transparent);}
+
+    /* PAGAMENTO */
+    .pay-btn.ativo{background:color-mix(in srgb,var(--accent) 10%,#fff);border-color:var(--accent);}
+
+    /* BOTÃO FINALIZAR */
+    .btn-finalizar{background:var(--grad);border-radius:13px;box-shadow:0 14px 30px -12px color-mix(in srgb,var(--accent) 75%,transparent);transition:transform .15s,filter .15s,box-shadow .15s;}
+    .btn-finalizar:hover{background:var(--grad);filter:brightness(1.06);transform:translateY(-2px);}
+    .btn-finalizar:disabled{background:#9db8f0;filter:none;transform:none;}
+
+    /* RESUMO */
+    .resumo{padding:26px;top:24px;}
+    .item-resumo img{border-radius:10px;}
+    .total-row.destaque{font-size:18px;}
+    .garantia-box{border-radius:12px;}
+
+    @media(max-width:700px){ .form-box{padding:22px;} }
+  </style>
 </head>
 <body>
 

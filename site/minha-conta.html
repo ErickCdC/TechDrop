@@ -79,6 +79,44 @@
       .tl-label{font-size:10px;}
     }
   </style>
+
+  <!-- ════════════ REDESIGN v2 — folha de override (minha conta) ════════════ -->
+  <style id="redesign-v2">
+    :root{
+      --text:#0b1220; --muted:#7a869a; --border:#e8edf4; --bg:#f4f7fb;
+      --grad:linear-gradient(135deg,var(--accent) 0%,#4f46e5 55%,#7c3aed 100%);
+      --shadow-sm:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.04);
+      --shadow:0 12px 32px -14px rgba(16,24,40,.18);
+    }
+    body{background:radial-gradient(900px 420px at 100% -5%,color-mix(in srgb,var(--accent) 9%,transparent),transparent 60%),var(--bg);font-size:15.5px;}
+
+    /* HEADER glassy */
+    header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.82);backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);border-bottom:1px solid var(--border);}
+    header .logo img{filter:drop-shadow(0 2px 6px rgba(16,24,40,.12));}
+
+    /* AUTH */
+    .auth-box{border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);padding:38px;}
+    .auth-tabs{background:var(--bg);}
+    .auth-tab.ativo{color:var(--accent);box-shadow:var(--shadow-sm);}
+    .field input{border:1.5px solid var(--border);border-radius:10px;background:#fbfcfe;transition:border-color .15s,box-shadow .15s,background .15s;}
+    .field input:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 15%,transparent);}
+
+    /* BOTÕES gradiente */
+    .btn{background:var(--grad);border-radius:12px;box-shadow:0 14px 30px -12px color-mix(in srgb,var(--accent) 70%,transparent);transition:transform .15s,filter .15s;}
+    .btn:hover{background:var(--grad);filter:brightness(1.06);transform:translateY(-2px);}
+    .btn-continuar{background:var(--grad);box-shadow:0 10px 22px -10px color-mix(in srgb,var(--accent) 70%,transparent);}
+    .btn-continuar:hover{background:var(--grad);filter:brightness(1.06);}
+    .conta-header h1{letter-spacing:-.6px;}
+
+    /* CARDS de pedido */
+    .pedido-card{border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-sm);transition:transform .15s,box-shadow .15s;}
+    .pedido-card:hover{transform:translateY(-3px);box-shadow:var(--shadow);}
+    .pedido-id{color:var(--accent);}
+    .status-pill{letter-spacing:.2px;}
+    .tl-dot.ativo{background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent);}
+
+    @media(max-width:600px){ .auth-box{padding:26px;} }
+  </style>
 </head>
 <body>
 
