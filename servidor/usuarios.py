@@ -8,6 +8,7 @@ import hashlib
 import base64
 import json
 import uuid
+import secrets
 from datetime import datetime, timedelta
 
 try:
@@ -20,9 +21,36 @@ USER_SECRET = os.getenv("USER_JWT_SECRET", "") or os.getenv("JWT_SECRET", "") or
 TOKEN_DIAS  = 30
 
 
-def _hash(senha: str) -> str:
-    # PBKDF2 com salt fixo derivado do secret (suficiente p/ esta escala)
+_PBKDF2_ITER = 200_000  # custo de derivação (mais alto = mais resistente a brute-force)
+
+
+def _hash_legado(senha: str) -> str:
+    """Esquema ANTIGO: PBKDF2 com salt global (USER_SECRET).
+    Mantido apenas para validar/migrar senhas de contas criadas antes da atualização."""
     return hashlib.pbkdf2_hmac("sha256", senha.encode(), USER_SECRET.encode(), 100_000).hex()
+
+
+def _hash(senha: str, salt: bytes | None = None) -> str:
+    """Esquema NOVO: PBKDF2-SHA256 com salt aleatório por usuário.
+    Formato: pbkdf2_sha256$<iteracoes>$<salt_hex>$<hash_hex>"""
+    salt = salt or secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac("sha256", senha.encode(), salt, _PBKDF2_ITER)
+    return f"pbkdf2_sha256${_PBKDF2_ITER}${salt.hex()}${dk.hex()}"
+
+
+def _verificar_senha(senha: str, armazenado: str) -> bool:
+    """Valida a senha aceitando tanto o formato novo (com salt) quanto o legado."""
+    if not armazenado:
+        return False
+    if armazenado.startswith("pbkdf2_sha256$"):
+        try:
+            _, iteracoes, salt_hex, hash_hex = armazenado.split("$")
+            dk = hashlib.pbkdf2_hmac("sha256", senha.encode(), bytes.fromhex(salt_hex), int(iteracoes))
+            return hmac.compare_digest(dk.hex(), hash_hex)
+        except Exception:
+            return False
+    # legado: hash hex puro com salt global
+    return hmac.compare_digest(armazenado, _hash_legado(senha))
 
 
 def _canon_email(email: str) -> str:
@@ -103,8 +131,12 @@ def cadastrar(nome: str, email: str, senha: str) -> dict:
 
 def login(email: str, senha: str) -> dict:
     usuario, chave = _buscar_usuario(email)
-    if not usuario or not hmac.compare_digest(usuario["senha_hash"], _hash(senha)):
+    if not usuario or not _verificar_senha(senha, usuario.get("senha_hash", "")):
         return {"ok": False, "erro": "E-mail ou senha incorretos."}
+    # Migração transparente: se a conta ainda usa o hash legado, regrava no formato novo
+    if not usuario["senha_hash"].startswith("pbkdf2_sha256$"):
+        usuario["senha_hash"] = _hash(senha)
+        db.put(COLECAO, chave, usuario)
     return {"ok": True, "token": _criar_token(chave), "nome": usuario["nome"]}
 
 

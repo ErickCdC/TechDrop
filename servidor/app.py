@@ -52,7 +52,68 @@ except ImportError:
 load_dotenv()
 
 app = Flask(__name__, static_folder="../site", static_url_path="")
-CORS(app, supports_credentials=True)
+
+# Atrás do proxy do Railway/Heroku: confia em X-Forwarded-Proto/Host para que
+# request.is_secure, cookies "secure" e HSTS funcionem corretamente.
+try:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+except Exception:
+    pass
+
+# CORS: por padrão restringe à própria loja (LOJA_URL). Defina CORS_ORIGINS
+# (separado por vírgula) para liberar domínios extras. "*" libera geral (dev).
+_cors_origins = os.getenv("CORS_ORIGINS", "").strip()
+if _cors_origins == "*":
+    CORS(app, supports_credentials=True)
+else:
+    _origins = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+    _loja = os.getenv("LOJA_URL", "").strip()
+    if _loja:
+        _origins.append(_loja)
+    CORS(app, supports_credentials=True, origins=_origins or "*")
+
+
+# ── Content-Security-Policy ───────────────────────────────────────────────────
+# Reflete os terceiros realmente usados (Google Fonts, Unsplash/alicdn, Mercado
+# Pago, pixels Meta/TikTok/Google, ViaCEP, 17track). Por padrão vai em modo
+# REPORT-ONLY: o navegador apenas registra violações no console, sem bloquear nada
+# (não quebra pixels nem scripts inline). Defina CSP_ENFORCE=1 para passar a aplicar
+# de fato, e CSP_REPORT_URI para receber os relatórios de violação.
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "img-src 'self' data: blob: https:; "
+    "font-src 'self' https://fonts.gstatic.com data:; "
+    "connect-src 'self' https:; "
+    "frame-src 'self' https:; "
+    "media-src 'self' https:; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self' https:; "
+    "frame-ancestors 'self'"
+)
+_CSP_ENFORCE   = os.getenv("CSP_ENFORCE", "") == "1"
+_CSP_REPORT_URI = os.getenv("CSP_REPORT_URI", "").strip()
+if _CSP_REPORT_URI:
+    _CSP += f"; report-uri {_CSP_REPORT_URI}"
+_CSP_HEADER = "Content-Security-Policy" if _CSP_ENFORCE else "Content-Security-Policy-Report-Only"
+
+
+@app.after_request
+def _aplicar_headers_seguranca(resp):
+    """Cabeçalhos de segurança aplicados a todas as respostas."""
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    resp.headers.setdefault(_CSP_HEADER, _CSP)
+    # HSTS só quando servido por HTTPS (evita travar o dev local em http)
+    if request.is_secure:
+        resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return resp
+
 
 UPLOADS_DIR = Path(__file__).parent / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
@@ -613,8 +674,14 @@ def conta_cadastrar():
 
 @app.route("/api/conta/login", methods=["POST"])
 def conta_login():
+    if _login_bloqueado("conta"):
+        return jsonify({"ok": False, "erro": "Muitas tentativas. Aguarde alguns minutos."}), 429
     d = request.json or {}
     r = usuarios.login(d.get("email",""), d.get("senha",""))
+    if r.get("ok"):
+        _limpar_falhas_login("conta")
+    else:
+        _registrar_falha_login("conta")
     return jsonify(r), (200 if r.get("ok") else 401)
 
 @app.route("/api/conta/me", methods=["GET"])
@@ -733,14 +800,48 @@ def conta_pedidos():
 
 # ── ADMIN AUTH ────────────────────────────────────────────────────────────────
 
+# ── Anti-brute-force (limitador leve, em memória por worker) ──────────────────
+from collections import defaultdict
+import time as _time
+
+_tentativas_login = defaultdict(list)   # ip -> [timestamps de falhas]
+_LOGIN_JANELA_SEG  = 900   # 15 min
+_LOGIN_MAX_FALHAS  = 10    # falhas permitidas na janela
+
+
+def _ip_cliente() -> str:
+    fwd = request.headers.get("X-Forwarded-For", "")
+    return (fwd.split(",")[0].strip() if fwd else request.remote_addr) or "?"
+
+
+def _login_bloqueado(escopo: str) -> bool:
+    chave = f"{escopo}:{_ip_cliente()}"
+    agora = _time.time()
+    _tentativas_login[chave] = [t for t in _tentativas_login[chave] if agora - t < _LOGIN_JANELA_SEG]
+    return len(_tentativas_login[chave]) >= _LOGIN_MAX_FALHAS
+
+
+def _registrar_falha_login(escopo: str):
+    _tentativas_login[f"{escopo}:{_ip_cliente()}"].append(_time.time())
+
+
+def _limpar_falhas_login(escopo: str):
+    _tentativas_login.pop(f"{escopo}:{_ip_cliente()}", None)
+
+
 @app.route("/api/admin/login", methods=["POST"])
 def admin_login():
+    if _login_bloqueado("admin"):
+        return jsonify({"ok": False, "erro": "Muitas tentativas. Aguarde alguns minutos."}), 429
     data = request.json or {}
     token = verificar_credenciais(data.get("user",""), data.get("senha",""))
     if not token:
+        _registrar_falha_login("admin")
         return jsonify({"ok": False, "erro": "Usuário ou senha incorretos"}), 401
+    _limpar_falhas_login("admin")
     resp = make_response(jsonify({"ok": True, "token": token}))
-    resp.set_cookie("admin_token", token, httponly=True, samesite="Lax", max_age=86400)
+    resp.set_cookie("admin_token", token, httponly=True, samesite="Lax",
+                    secure=request.is_secure, max_age=86400)
     return resp
 
 @app.route("/api/admin/logout", methods=["POST"])

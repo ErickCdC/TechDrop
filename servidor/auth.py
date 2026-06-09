@@ -25,7 +25,7 @@ else:
     JWT_SECRET = "DEV-INSEGURO-defina-ADMIN_PASS"
 
 if not ADMIN_PASS:
-    print("[AUTH] ⚠️  ADMIN_PASS não definido! Defina a variável de ambiente "
+    print("[AUTH] AVISO: ADMIN_PASS nao definido! Defina a variavel de ambiente "
           "ADMIN_PASS no Railway para proteger o painel admin.")
 
 
