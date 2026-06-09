@@ -9,6 +9,10 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 LOJA_NOME      = os.getenv("LOJA_NOME",      "TechDrop Brasil")
 LOJA_EMAIL     = os.getenv("LOJA_EMAIL",     "suporte@techdropbrasil.com.br")
 LOJA_URL       = os.getenv("LOJA_URL",       "https://techdropbrasil.com.br")
+# Remetente. O padrao onboarding@resend.dev SO entrega para o e-mail dono da
+# conta Resend. Para enviar a clientes reais, verifique um dominio no Resend e
+# defina EMAIL_FROM=pedidos@seudominio.com.br
+EMAIL_FROM     = os.getenv("EMAIL_FROM",     "onboarding@resend.dev")
 
 def _enviar(destinatario: str, assunto: str, html: str) -> bool:
     if not RESEND_API_KEY:
@@ -18,7 +22,7 @@ def _enviar(destinatario: str, assunto: str, html: str) -> bool:
         r = httpx.post(
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
-            json={"from": f"{LOJA_NOME} <onboarding@resend.dev>",
+            json={"from": f"{LOJA_NOME} <{EMAIL_FROM}>",
                   "to": [destinatario], "subject": assunto, "html": html},
             timeout=10,
         )

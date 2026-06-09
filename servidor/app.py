@@ -71,6 +71,9 @@ else:
     _loja = os.getenv("LOJA_URL", "").strip()
     if _loja:
         _origins.append(_loja)
+    # Extensao do Chrome (importador AliExpress) chama a API de origem
+    # chrome-extension://<id> — libera esse esquema sempre.
+    _origins.append(re.compile(r"^chrome-extension://"))
     CORS(app, supports_credentials=True, origins=_origins or "*")
 
 
