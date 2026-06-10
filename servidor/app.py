@@ -1460,6 +1460,12 @@ def admin_teste_email():
     return jsonify(resultado)
 
 
+@app.route("/api/ping", methods=["GET"])
+def ping():
+    """Endpoint de healthcheck — confirma versao do deploy."""
+    return jsonify({"ok": True, "versao": "2026-06-10-v2", "email_teste_ativo": True})
+
+
 @app.route("/api/status-db", methods=["GET"])
 def status_db():
     """Diagnóstico: mostra qual banco está ativo (para checar o Postgres)."""
