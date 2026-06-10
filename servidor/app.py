@@ -1463,7 +1463,7 @@ def admin_teste_email():
 @app.route("/api/ping", methods=["GET"])
 def ping():
     """Endpoint de healthcheck — confirma versao do deploy."""
-    return jsonify({"ok": True, "versao": "2026-06-10-v2", "email_teste_ativo": True})
+    return jsonify({"ok": True, "versao": "2026-06-10-v3", "email_teste_ativo": True})
 
 
 @app.route("/api/status-db", methods=["GET"])
