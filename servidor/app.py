@@ -1452,18 +1452,42 @@ def admin_aliexpress_status():
 @login_required
 def admin_teste_email():
     """Dispara um e-mail de teste para validar a integração Resend."""
+    import threading
     d = request.json or {}
     dest = d.get("email", "").strip()
     if not dest:
         return jsonify({"ok": False, "erro": "Informe o campo 'email' no corpo JSON"}), 400
-    resultado = emails.enviar_teste(dest)
-    return jsonify(resultado)
+    # Chave configurada?
+    api_key = os.getenv("RESEND_API_KEY", "")
+    email_from = os.getenv("EMAIL_FROM", "onboarding@resend.dev")
+    if not api_key:
+        return jsonify({"ok": False, "erro": "RESEND_API_KEY nao encontrada no Railway"})
+    # Dispara em thread separada para nao bloquear o worker
+    resultado = {"status": "enviando"}
+    try:
+        import httpx as _httpx
+        r = _httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"from": f"TechDrop <{email_from}>",
+                  "to": [dest],
+                  "subject": "Teste de e-mail - TechDrop",
+                  "html": f"<p>Teste enviado para <strong>{dest}</strong>. Integracao Resend OK.</p>"},
+            timeout=_httpx.Timeout(connect=5.0, read=8.0, write=5.0, pool=2.0),
+        )
+        if r.status_code in (200, 201):
+            return jsonify({"ok": True, "msg": f"Enviado para {dest}", "resend_id": r.json().get("id",""), "http": r.status_code})
+        return jsonify({"ok": False, "erro": f"Resend {r.status_code}: {r.text[:300]}", "key_prefix": api_key[:8]+"..."})
+    except _httpx.TimeoutException as e:
+        return jsonify({"ok": False, "erro": f"Timeout: {e}", "key_prefix": api_key[:8]+"..."})
+    except Exception as e:
+        return jsonify({"ok": False, "erro": f"Excecao: {type(e).__name__}: {str(e)[:200]}", "key_prefix": api_key[:8]+"..."})
 
 
 @app.route("/api/ping", methods=["GET"])
 def ping():
     """Endpoint de healthcheck — confirma versao do deploy."""
-    return jsonify({"ok": True, "versao": "2026-06-10-v3", "email_teste_ativo": True})
+    return jsonify({"ok": True, "versao": "2026-06-10-v4", "email_teste_ativo": True})
 
 
 @app.route("/api/status-db", methods=["GET"])
