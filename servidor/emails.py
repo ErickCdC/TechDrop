@@ -319,3 +319,27 @@ def notificar_cancelamento(pedido: dict, motivo: str = "", reembolsado: bool = T
     </p>""")
 
     return _enviar(email, f"Pedido #{pid} cancelado — reembolso a caminho", html)
+
+
+# ── TESTE DE INTEGRAÇÃO ────────────────────────────────────────────────────────
+
+def enviar_teste(destinatario: str) -> dict:
+    """Dispara um e-mail de diagnóstico para confirmar que o Resend está configurado."""
+    if not RESEND_API_KEY:
+        return {"ok": False, "erro": "RESEND_API_KEY não configurada no servidor"}
+    html = _base(f"""
+    <h2 style="color:#111827;">✅ E-mail de teste — {LOJA_NOME}</h2>
+    <p style="color:#6b7280;">
+      Se você está lendo este e-mail, a integração com o Resend está funcionando corretamente.<br/><br/>
+      <strong>Remetente:</strong> {EMAIL_FROM}<br/>
+      <strong>Destinatário:</strong> {destinatario}<br/>
+    </p>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:20px 0;">
+      <p style="margin:0;font-size:14px;color:#166534;">
+        🚀 E-mails automáticos de confirmação de pedido, rastreio e entrega estão ativos.
+      </p>
+    </div>""")
+    ok = _enviar(destinatario, f"✅ Teste de e-mail — {LOJA_NOME}", html)
+    if ok:
+        return {"ok": True, "msg": f"E-mail de teste enviado para {destinatario}"}
+    return {"ok": False, "erro": "Resend retornou erro — verifique RESEND_API_KEY e EMAIL_FROM no Railway"}

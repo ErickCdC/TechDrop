@@ -1448,6 +1448,18 @@ def admin_aliexpress_status():
                     "token": bool(fornecedor.get_token())})
 
 
+@app.route("/api/admin/email/teste", methods=["POST"])
+@login_required
+def admin_teste_email():
+    """Dispara um e-mail de teste para validar a integração Resend."""
+    d = request.json or {}
+    dest = d.get("email", "").strip()
+    if not dest:
+        return jsonify({"ok": False, "erro": "Informe o campo 'email' no corpo JSON"}), 400
+    resultado = emails.enviar_teste(dest)
+    return jsonify(resultado)
+
+
 @app.route("/api/status-db", methods=["GET"])
 def status_db():
     """Diagnóstico: mostra qual banco está ativo (para checar o Postgres)."""
