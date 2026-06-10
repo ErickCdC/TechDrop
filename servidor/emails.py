@@ -326,20 +326,33 @@ def notificar_cancelamento(pedido: dict, motivo: str = "", reembolsado: bool = T
 def enviar_teste(destinatario: str) -> dict:
     """Dispara um e-mail de diagnóstico para confirmar que o Resend está configurado."""
     if not RESEND_API_KEY:
-        return {"ok": False, "erro": "RESEND_API_KEY não configurada no servidor"}
+        return {"ok": False, "erro": "RESEND_API_KEY nao configurada no servidor"}
     html = _base(f"""
-    <h2 style="color:#111827;">✅ E-mail de teste — {LOJA_NOME}</h2>
+    <h2 style="color:#111827;">E-mail de teste - {LOJA_NOME}</h2>
     <p style="color:#6b7280;">
-      Se você está lendo este e-mail, a integração com o Resend está funcionando corretamente.<br/><br/>
+      Se voce esta lendo este e-mail, a integracao com o Resend esta funcionando.<br/><br/>
       <strong>Remetente:</strong> {EMAIL_FROM}<br/>
-      <strong>Destinatário:</strong> {destinatario}<br/>
+      <strong>Destinatario:</strong> {destinatario}<br/>
     </p>
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:20px 0;">
       <p style="margin:0;font-size:14px;color:#166534;">
-        🚀 E-mails automáticos de confirmação de pedido, rastreio e entrega estão ativos.
+        E-mails automaticos de confirmacao de pedido, rastreio e entrega estao ativos.
       </p>
     </div>""")
-    ok = _enviar(destinatario, f"✅ Teste de e-mail — {LOJA_NOME}", html)
-    if ok:
-        return {"ok": True, "msg": f"E-mail de teste enviado para {destinatario}"}
-    return {"ok": False, "erro": "Resend retornou erro — verifique RESEND_API_KEY e EMAIL_FROM no Railway"}
+    try:
+        r = httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+            json={"from": f"{LOJA_NOME} <{EMAIL_FROM}>",
+                  "to": [destinatario],
+                  "subject": f"Teste de e-mail - {LOJA_NOME}",
+                  "html": html},
+            timeout=httpx.Timeout(8.0),
+        )
+        if r.status_code in (200, 201):
+            return {"ok": True, "msg": f"E-mail enviado para {destinatario}", "resend_id": r.json().get("id","")}
+        return {"ok": False, "erro": f"Resend HTTP {r.status_code}: {r.text[:300]}"}
+    except httpx.TimeoutException:
+        return {"ok": False, "erro": "Timeout ao conectar no Resend (8s) — verifique conectividade do Railway"}
+    except Exception as e:
+        return {"ok": False, "erro": f"Excecao: {str(e)[:200]}"}
