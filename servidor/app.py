@@ -1559,6 +1559,13 @@ def admin_detalhe_usuario(email):
     peds.sort(key=lambda p: p.get("criado_em", ""), reverse=True)
     return jsonify({"ok": True, "usuario": u, "pedidos": peds})
 
+@app.route("/api/admin/usuarios/<email>", methods=["DELETE"])
+@login_required
+def admin_deletar_usuario(email):
+    """Exclui a conta de um cliente (os pedidos dele permanecem no histórico)."""
+    ok = usuarios.deletar(email)
+    return jsonify({"ok": ok, "erro": None if ok else "Cliente não encontrado"})
+
 @app.route("/api/admin/config", methods=["GET"])
 @login_required
 def admin_get_config():

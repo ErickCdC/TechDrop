@@ -148,6 +148,18 @@ def obter(email: str) -> dict | None:
     return u
 
 
+def deletar(email: str) -> bool:
+    """Exclui a conta do cliente (e seu índice de indicação, se houver).
+    Os pedidos já feitos não são removidos — ficam no histórico da loja."""
+    u, chave = _buscar_usuario(email)
+    if not u:
+        return False
+    cod = u.get("ref_codigo")
+    if cod:
+        db.deletar(REF_INDEX, cod)
+    return db.deletar(COLECAO, chave)
+
+
 def atualizar_endereco(email: str, endereco: dict):
     u = db.get(COLECAO, email.lower().strip())
     if u:
