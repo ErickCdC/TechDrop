@@ -1484,11 +1484,6 @@ def admin_teste_email():
         return jsonify({"ok": False, "erro": f"Excecao: {type(e).__name__}: {str(e)[:200]}", "key_prefix": api_key[:8]+"..."})
 
 
-@app.route("/api/ping", methods=["GET"])
-def ping():
-    """Endpoint de healthcheck — confirma versao do deploy."""
-    return jsonify({"ok": True, "versao": "2026-06-10-v4", "email_teste_ativo": True})
-
 
 @app.route("/api/status-db", methods=["GET"])
 def status_db():
